@@ -23,6 +23,22 @@ L'API est disponible sur `http://127.0.0.1:8000`.
 - Documentation interactive : `http://127.0.0.1:8000/docs`
 - Vérification de santé : `http://127.0.0.1:8000/health`
 
+## Premier calcul nutritionnel
+
+L'endpoint `POST /profile/nutrition` accepte un profil et renvoie le métabolisme de base,
+la dépense énergétique totale et la cible calorique selon l'objectif.
+
+```json
+{
+	"weight_kg": 70,
+	"height_cm": 175,
+	"age": 30,
+	"sex": "male",
+	"activity_level": "moderate",
+	"goal": "loss"
+}
+```
+
 ## Stack prévue
 
 - FastAPI et Pydantic

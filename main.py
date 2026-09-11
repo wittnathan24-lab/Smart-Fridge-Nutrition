@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from models import NutritionNeeds, UserProfile, calculate_nutrition_needs
+
 
 app = FastAPI(
 	title="Smart Fridge & Nutrition Coach",
@@ -29,3 +31,8 @@ async def read_root() -> dict[str, str]:
 @app.get("/health", tags=["System"])
 async def health_check() -> dict[str, str]:
 	return {"status": "ok"}
+
+
+@app.post("/profile/nutrition", response_model=NutritionNeeds, tags=["Nutrition"])
+async def calculate_profile_nutrition(profile: UserProfile) -> NutritionNeeds:
+	return calculate_nutrition_needs(profile)
