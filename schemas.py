@@ -1,5 +1,11 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# Identifiants officiels USDA FoodData Central (foodNutrients[].nutrientId)
+USDA_NUTRIENT_ID_ENERGY = 1008
+USDA_NUTRIENT_ID_PROTEIN = 1003
+USDA_NUTRIENT_ID_FAT = 1004
+USDA_NUTRIENT_ID_CARBS = 1005
+
 
 class IngredientQuantity(BaseModel):
     name: str
@@ -43,3 +49,46 @@ class RecipeDetail(BaseModel):
                 ingredients.append({"name": name.strip(), "measure": measure})
 
         return {**data, "ingredients": ingredients}
+
+
+class NutrientProfile(BaseModel):
+    """Valeurs pour 100g, extraites par identifiant officiel USDA."""
+
+    calories_kcal: float | None = None
+    protein_g: float | None = None
+    carbs_g: float | None = None
+    fat_g: float | None = None
+
+
+class USDAFoodMatch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    fdc_id: int = Field(alias="fdcId")
+    description: str
+    data_type: str | None = Field(default=None, alias="dataType")
+    nutrients: NutrientProfile = Field(default_factory=NutrientProfile)
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_key_nutrients(cls, data: dict) -> dict:
+        """foodNutrients est une liste non ordonnee de {nutrientId, value, ...}.
+        On indexe par nutrientId plutot que par position pour extraire
+        l'energie (1008) et les trois macros (1003, 1004, 1005).
+        """
+        if not isinstance(data, dict):
+            return data
+
+        values_by_nutrient_id = {
+            nutrient.get("nutrientId"): nutrient.get("value")
+            for nutrient in data.get("foodNutrients", [])
+            if nutrient.get("nutrientId") is not None
+        }
+
+        nutrients = {
+            "calories_kcal": values_by_nutrient_id.get(USDA_NUTRIENT_ID_ENERGY),
+            "protein_g": values_by_nutrient_id.get(USDA_NUTRIENT_ID_PROTEIN),
+            "carbs_g": values_by_nutrient_id.get(USDA_NUTRIENT_ID_CARBS),
+            "fat_g": values_by_nutrient_id.get(USDA_NUTRIENT_ID_FAT),
+        }
+
+        return {**data, "nutrients": nutrients}
