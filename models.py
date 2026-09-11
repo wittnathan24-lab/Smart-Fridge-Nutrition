@@ -39,6 +39,11 @@ class NutritionNeeds(BaseModel):
     target_calories_kcal: float
 
 
+class FridgeItem(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    quantity_g: float = Field(gt=0, le=100000)
+
+
 ACTIVITY_FACTORS = {
     ActivityLevel.SEDENTARY: 1.2,
     ActivityLevel.LIGHT: 1.375,

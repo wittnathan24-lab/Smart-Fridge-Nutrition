@@ -39,6 +39,9 @@ la dépense énergétique totale et la cible calorique selon l'objectif.
 }
 ```
 
+Le frigo est actuellement conservé en mémoire pour préparer l’intégration future de la base
+de données. Les endpoints disponibles sont `POST /fridge/items` et `GET /fridge/items`.
+
 ## Stack prévue
 
 - FastAPI et Pydantic
