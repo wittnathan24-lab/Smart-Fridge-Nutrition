@@ -92,3 +92,21 @@ class USDAFoodMatch(BaseModel):
         }
 
         return {**data, "nutrients": nutrients}
+
+
+class IngredientNutritionResult(BaseModel):
+    ingredient: str
+    measure: str | None = None
+    matched: bool = False
+    matched_food: str | None = None
+    nutrients_per_100g: NutrientProfile | None = None
+    estimated_nutrients: NutrientProfile | None = None
+
+
+class RecipeNutritionResult(BaseModel):
+    meal_id: str
+    name: str
+    thumbnail: str | None = None
+    ingredients: list[IngredientNutritionResult]
+    unmatched_ingredients: list[str]
+    estimated_total: NutrientProfile
