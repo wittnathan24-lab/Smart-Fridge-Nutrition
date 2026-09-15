@@ -1,3 +1,8 @@
+import asyncio
+from pathlib import Path
+from auth import router as auth_router, current_user
+from personal import router as personal_router
+from database import initialize, connection
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -18,6 +23,7 @@ from services.usda import USDAError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+	initialize()
 	async with httpx.AsyncClient() as client:
 		app.state.http_client = client
 		yield
@@ -30,10 +36,13 @@ app = FastAPI(
 	lifespan=lifespan,
 )
 
-templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.include_router(auth_router)
+app.include_router(personal_router)
+BASE = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE / "templates"))
+app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
-fridge_inventory: list[FridgeItem] = []
+
 
 app.add_middleware(
 	CORSMiddleware,
@@ -48,7 +57,7 @@ def get_http_client(request: Request) -> httpx.AsyncClient:
 	return request.app.state.http_client
 
 
-@app.get("/", tags=["System"])
+@app.get("/api", tags=["System"])
 async def read_root() -> dict[str, str]:
 	return {
 		"name": "Smart Fridge & Nutrition Coach",
@@ -57,6 +66,7 @@ async def read_root() -> dict[str, str]:
 	}
 
 
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 @app.get("/app", response_class=HTMLResponse, include_in_schema=False)
 async def web_app(request: Request) -> HTMLResponse:
 	return templates.TemplateResponse(request=request, name="app.html")
@@ -68,22 +78,37 @@ async def health_check() -> dict[str, str]:
 
 
 @app.post("/profile/nutrition", response_model=NutritionNeeds, tags=["Nutrition"])
-async def calculate_profile_nutrition(profile: UserProfile) -> NutritionNeeds:
+async def calculate_profile_nutrition(profile: UserProfile, user=Depends(current_user)) -> NutritionNeeds:
 	return calculate_nutrition_needs(profile)
 
 
-@app.post("/fridge/items", response_model=FridgeItem, status_code=201, tags=["Fridge"])
-async def add_fridge_item(item: FridgeItem) -> FridgeItem:
-	fridge_inventory.append(item)
-	return item
+@app.post('/fridge/items', status_code=201, tags=['Fridge'])
+def add_fridge_item(item: FridgeItem, user=Depends(current_user)):
+    with connection() as db:
+        cursor = db.execute('INSERT INTO items(user_id,name,quantity_g) VALUES (?,?,?)', (user['id'], item.name, item.quantity_g))
+        return {'id': cursor.lastrowid, **item.model_dump()}
+
+@app.get('/fridge/items', tags=['Fridge'])
+def list_fridge_items(user=Depends(current_user)):
+    with connection() as db:
+        return [dict(r) for r in db.execute('SELECT id,name,quantity_g FROM items WHERE user_id=? ORDER BY id', (user['id'],))]
+
+@app.put('/fridge/items/{item_id}', tags=['Fridge'])
+def update_fridge_item(item_id: int, item: FridgeItem, user=Depends(current_user)):
+    with connection() as db:
+        if not db.execute('UPDATE items SET name=?,quantity_g=? WHERE id=? AND user_id=?', (item.name, item.quantity_g, item_id, user['id'])).rowcount:
+            raise HTTPException(404, 'Ingrédient introuvable.')
+    return {'id': item_id, **item.model_dump()}
+
+@app.delete('/fridge/items/{item_id}', tags=['Fridge'])
+def delete_fridge_item(item_id: int, user=Depends(current_user)):
+    with connection() as db:
+        if not db.execute('DELETE FROM items WHERE id=? AND user_id=?', (item_id, user['id'])).rowcount:
+            raise HTTPException(404, 'Ingrédient introuvable.')
+    return {'deleted': True}
 
 
-@app.get("/fridge/items", response_model=list[FridgeItem], tags=["Fridge"])
-async def list_fridge_items() -> list[FridgeItem]:
-	return fridge_inventory
-
-
-@app.get("/recipes/search", response_model=list[RecipeSummary], tags=["Recipes"])
+@app.get("/recipes/search", response_model=list[RecipeSummary], response_model_by_alias=False, tags=["Recipes"], dependencies=[Depends(current_user)])
 async def search_recipes(
 	ingredient: str, client: httpx.AsyncClient = Depends(get_http_client)
 ) -> list[RecipeSummary]:
@@ -93,7 +118,7 @@ async def search_recipes(
 		raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@app.get("/recipes/{meal_id}", response_model=RecipeDetail, tags=["Recipes"])
+@app.get("/recipes/{meal_id}", response_model=RecipeDetail, response_model_by_alias=False, tags=["Recipes"], dependencies=[Depends(current_user)])
 async def get_recipe(
 	meal_id: str, client: httpx.AsyncClient = Depends(get_http_client)
 ) -> RecipeDetail:
@@ -110,7 +135,7 @@ async def get_recipe(
 @app.get(
 	"/recipes/{meal_id}/nutrition",
 	response_model=RecipeNutritionResult,
-	tags=["Recipes"],
+	tags=["Recipes"], dependencies=[Depends(current_user)],
 )
 async def get_recipe_nutrition(
 	meal_id: str, client: httpx.AsyncClient = Depends(get_http_client)
@@ -125,21 +150,18 @@ async def get_recipe_nutrition(
 	return result
 
 
-@app.get("/fridge/suggestions", response_model=list[RecipeSummary], tags=["Fridge"])
-async def suggest_recipes_from_fridge(
-	client: httpx.AsyncClient = Depends(get_http_client),
-) -> list[RecipeSummary]:
-	if not fridge_inventory:
-		return []
-
-	suggestions_by_meal_id: dict[str, RecipeSummary] = {}
-	for item in fridge_inventory:
-		try:
-			matches = await search_recipes_by_ingredient(client, to_english(item.name))
-		except TheMealDBError as exc:
-			raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-		for recipe in matches:
-			suggestions_by_meal_id[recipe.meal_id] = recipe
-
-	return list(suggestions_by_meal_id.values())
+@app.get('/fridge/suggestions', response_model=list[RecipeSummary], response_model_by_alias=False, tags=['Fridge'])
+async def suggest_recipes_from_fridge(client: httpx.AsyncClient = Depends(get_http_client), user=Depends(current_user)):
+    items = list_fridge_items(user)
+    ingredients = list(dict.fromkeys(to_english(item['name']) for item in items))[:12]
+    results = await asyncio.gather(*(search_recipes_by_ingredient(client, i) for i in ingredients), return_exceptions=True)
+    if results and all(isinstance(r, Exception) for r in results):
+        raise HTTPException(502, 'Le service de recettes est indisponible. Réessayez dans quelques instants.')
+    recipes, scores = {}, {}
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+        for recipe in result:
+            recipes[recipe.meal_id] = recipe
+            scores[recipe.meal_id] = scores.get(recipe.meal_id, 0) + 1
+    return sorted(recipes.values(), key=lambda r: (-scores[r.meal_id], r.name))[:18]

@@ -17,17 +17,15 @@ from services.usda import USDAError, search_food
 # "1.5kg"). TheMealDB donne surtout des mesures maison ("1 cup", "2 tbsp") que
 # l'on ne peut pas convertir fiablement sans table de densites par ingredient :
 # ces cas restent non extrapoles plutot que de produire un chiffre trompeur.
-_GRAMS_PATTERN = re.compile(r"(?P<value>[\d.]+)\s*(?P<unit>kg|g)\b", re.IGNORECASE)
+_GRAMS_PATTERN = re.compile(r"^\s*(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>kg|g)\s*$", re.IGNORECASE)
 
 
 def _parse_grams(measure: str | None) -> float | None:
-    if not measure:
-        return None
-    match = _GRAMS_PATTERN.search(measure)
+    match = _GRAMS_PATTERN.fullmatch(measure or '')
     if not match:
         return None
-    value = float(match.group("value"))
-    return value * 1000 if match.group("unit").lower() == "kg" else value
+    value = float(match.group('value').replace(',', '.'))
+    return value * (1000 if match.group('unit').lower() == 'kg' else 1) if value > 0 else None
 
 
 def _scale(nutrients: NutrientProfile, grams: float) -> NutrientProfile:
@@ -81,14 +79,10 @@ async def _lookup_ingredient_nutrition(
 
 def _sum_estimated(results: list[IngredientNutritionResult]) -> NutrientProfile:
     estimated = [r.estimated_nutrients for r in results if r.estimated_nutrients is not None]
-    return NutrientProfile(
-        calories_kcal=round(
-            sum(n.calories_kcal for n in estimated if n.calories_kcal is not None), 2
-        ),
-        protein_g=round(sum(n.protein_g for n in estimated if n.protein_g is not None), 2),
-        carbs_g=round(sum(n.carbs_g for n in estimated if n.carbs_g is not None), 2),
-        fat_g=round(sum(n.fat_g for n in estimated if n.fat_g is not None), 2),
-    )
+    return NutrientProfile(**{
+        field: round(sum(values), 2) if (values := [getattr(n, field) for n in estimated if getattr(n, field) is not None]) else None
+        for field in NutrientProfile.model_fields
+    })
 
 
 async def compute_recipe_nutrition(

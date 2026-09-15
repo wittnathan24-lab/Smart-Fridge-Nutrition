@@ -21,10 +21,13 @@ async def search_recipes_by_ingredient(
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-    except httpx.TimeoutException as exc:
+        response.json()
+    except httpx.RequestError as exc:
         raise TheMealDBError(
             f"Timeout lors de la recherche de recettes pour '{ingredient}'"
         ) from exc
+    except ValueError as exc:
+        raise TheMealDBError("Réponse externe invalide") from exc
     except httpx.HTTPStatusError as exc:
         raise TheMealDBError(
             _status_error_message(exc, f"la recherche de recettes pour '{ingredient}'")
@@ -43,8 +46,11 @@ async def get_recipe_detail(client: httpx.AsyncClient, meal_id: str) -> RecipeDe
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-    except httpx.TimeoutException as exc:
+        response.json()
+    except httpx.RequestError as exc:
         raise TheMealDBError(f"Timeout lors de la recuperation de la recette {meal_id}") from exc
+    except ValueError as exc:
+        raise TheMealDBError("Réponse externe invalide") from exc
     except httpx.HTTPStatusError as exc:
         raise TheMealDBError(
             _status_error_message(exc, f"la recuperation de la recette {meal_id}")

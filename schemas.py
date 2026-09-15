@@ -41,6 +41,8 @@ class RecipeDetail(BaseModel):
         if not isinstance(data, dict):
             return data
 
+        if "ingredients" in data:
+            return data
         ingredients = []
         for i in range(1, 21):
             name = data.get(f"strIngredient{i}")
@@ -78,6 +80,8 @@ class USDAFoodMatch(BaseModel):
         if not isinstance(data, dict):
             return data
 
+        if "nutrients" in data:
+            return data
         values_by_nutrient_id = {
             nutrient.get("nutrientId"): nutrient.get("value")
             for nutrient in data.get("foodNutrients", [])
