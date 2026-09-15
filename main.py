@@ -4,9 +4,13 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from models import FridgeItem, NutritionNeeds, UserProfile, calculate_nutrition_needs
 from schemas import RecipeDetail, RecipeNutritionResult, RecipeSummary
+from services.ingredient_mapping import to_english
 from services.nutrition_aggregator import compute_recipe_nutrition
 from services.themealdb import TheMealDBError, get_recipe_detail, search_recipes_by_ingredient
 from services.usda import USDAError
@@ -25,6 +29,9 @@ app = FastAPI(
 	version="0.1.0",
 	lifespan=lifespan,
 )
+
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 fridge_inventory: list[FridgeItem] = []
 
@@ -48,6 +55,11 @@ async def read_root() -> dict[str, str]:
 		"message": "API opérationnelle",
 		"docs": "/docs",
 	}
+
+
+@app.get("/app", response_class=HTMLResponse, include_in_schema=False)
+async def web_app(request: Request) -> HTMLResponse:
+	return templates.TemplateResponse(request=request, name="app.html")
 
 
 @app.get("/health", tags=["System"])
@@ -76,7 +88,7 @@ async def search_recipes(
 	ingredient: str, client: httpx.AsyncClient = Depends(get_http_client)
 ) -> list[RecipeSummary]:
 	try:
-		return await search_recipes_by_ingredient(client, ingredient)
+		return await search_recipes_by_ingredient(client, to_english(ingredient))
 	except TheMealDBError as exc:
 		raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -123,7 +135,7 @@ async def suggest_recipes_from_fridge(
 	suggestions_by_meal_id: dict[str, RecipeSummary] = {}
 	for item in fridge_inventory:
 		try:
-			matches = await search_recipes_by_ingredient(client, item.name)
+			matches = await search_recipes_by_ingredient(client, to_english(item.name))
 		except TheMealDBError as exc:
 			raise HTTPException(status_code=502, detail=str(exc)) from exc
 

@@ -1,10 +1,88 @@
-"""Mapping anglais britannique (TheMealDB) -> americain (USDA).
+"""Mapping francais et anglais (TheMealDB) -> americain (USDA).
 
 TheMealDB utilise des noms d'ingredients en anglais britannique qui n'ont
 souvent aucune correspondance directe dans USDA FoodData Central, redige en
 anglais americain. Ce dictionnaire sert de secours (fallback) quand une
 recherche USDA directe ne renvoie aucun resultat.
 """
+
+import re
+import unicodedata
+
+
+def _key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.strip().lower())
+    without_accents = "".join(char for char in normalized if not unicodedata.combining(char))
+    without_ligatures = without_accents.replace("œ", "oe").replace("æ", "ae")
+    return re.sub(r"\s+", " ", without_ligatures.replace("’", "'")).strip()
+
+
+FRENCH_TO_AMERICAN = {
+    # Fruits
+    "abricot": "apricot", "ananas": "pineapple", "banane": "banana", "cerise": "cherry",
+    "citron": "lemon", "citron vert": "lime", "fraise": "strawberry", "framboise": "raspberry",
+    "myrtille": "blueberry", "mure": "blackberry", "grenade": "pomegranate", "kiwi": "kiwifruit",
+    "mangue": "mango", "melon": "cantaloupe", "pasteque": "watermelon", "nectarine": "nectarine",
+    "orange": "orange", "pamplemousse": "grapefruit", "peche": "peach", "poire": "pear",
+    "pomme": "apple", "prune": "plum", "raisin": "grapes", "figue": "fig", "datte": "dates",
+    "noix de coco": "coconut", "avocat": "avocado",
+    # Legumes et champignons
+    "ail": "garlic", "artichaut": "artichoke", "asperge": "asparagus", "aubergine": "eggplant",
+    "betterave": "beet", "brocoli": "broccoli", "carotte": "carrot", "celeri": "celery",
+    "champignon": "mushroom", "chou": "cabbage", "chou blanc": "cabbage", "chou-fleur": "cauliflower",
+    "chou fleur": "cauliflower", "chou kale": "kale", "chou rouge": "red cabbage",
+    "chou de bruxelles": "brussels sprouts", "concombre": "cucumber", "courgette": "zucchini",
+    "epinard": "spinach", "fenouil": "fennel", "haricot vert": "green beans", "mais": "corn",
+    "navet": "turnip", "oignon": "onion", "oignon rouge": "red onion", "oignon nouveau": "scallion",
+    "patate douce": "sweet potato", "piment": "chili pepper", "poireau": "leek", "pois": "peas",
+    "pois chiche": "chickpeas", "pois gourmand": "snow peas", "poivron": "bell pepper",
+    "poivron rouge": "red pepper", "poivron vert": "green pepper", "pomme de terre": "potato",
+    "potiron": "pumpkin", "radis": "radish", "salade": "lettuce", "tomate": "tomato",
+    "tomates cerises": "cherry tomatoes", "courge": "squash", "roquette": "arugula", "gingembre": "ginger",
+    # Viandes et volailles
+    "agneau": "lamb", "bacon": "bacon", "boeuf": "beef", "boeuf hache": "ground beef",
+    "canard": "duck", "dinde": "turkey", "escalope de poulet": "chicken breast", "foie": "liver",
+    "jambon": "ham", "lapin": "rabbit", "porc": "pork", "porc hache": "ground pork",
+    "poulet": "chicken", "poulet entier": "whole chicken", "saucisse": "sausage", "saucisses": "sausages",
+    "veau": "veal", "viande hachee": "ground beef", "steak": "steak", "cotelette": "chop",
+    # Poissons et fruits de mer
+    "anchois": "anchovies", "bar": "sea bass", "cabillaud": "cod", "calamar": "squid",
+    "crevette": "shrimp", "crabe": "crab", "dorade": "sea bream", "huitre": "oyster",
+    "maquereau": "mackerel", "moule": "mussels", "palourde": "clams", "saumon": "salmon",
+    "sardine": "sardines", "sole": "sole", "thon": "tuna", "truite": "trout",
+    "poisson": "fish", "fruits de mer": "seafood",
+    # Produits laitiers et oeufs
+    "beurre": "butter", "creme fraiche": "sour cream", "creme liquide": "heavy cream",
+    "fromage": "cheese", "fromage blanc": "cottage cheese", "feta": "feta cheese", "mozzarella": "mozzarella",
+    "parmesan": "parmesan", "cheddar": "cheddar", "lait": "milk", "lait de coco": "coconut milk",
+    "lait d'amande": "almond milk", "yaourt": "yogurt", "yaourt grec": "greek yogurt",
+    "oeuf": "egg", "oeufs": "eggs",
+    # Cereales, pains et feculents
+    "avoine": "oats", "ble": "wheat", "boulgour": "bulgur", "couscous": "couscous",
+    "farine": "all-purpose flour", "farine complete": "whole wheat flour", "farine de mais": "corn flour",
+    "flocons d'avoine": "oatmeal", "pain": "bread", "pain complet": "whole wheat bread", "pates": "pasta",
+    "pates completes": "whole wheat pasta", "quinoa": "quinoa", "riz": "rice", "riz complet": "brown rice",
+    "semoule": "semolina", "nouilles": "noodles", "tortilla": "tortilla", "chapelure": "breadcrumbs",
+    # Legumineuses, noix et graines
+    "haricot blanc": "white beans", "haricot rouge": "kidney beans", "haricots rouges": "kidney beans",
+    "lentille": "lentils", "lentilles": "lentils", "pois casse": "split peas", "amande": "almonds",
+    "cacahuete": "peanuts", "noisette": "hazelnuts", "noix": "walnuts", "noix de cajou": "cashews",
+    "pistache": "pistachios", "graines de chia": "chia seeds", "graines de lin": "flax seeds",
+    "graines de sesame": "sesame seeds", "beurre de cacahuete": "peanut butter", "beurre d'amande": "almond butter",
+    # Herbes, epices, huiles et epicerie
+    "basilic": "basil", "cannelle": "cinnamon", "ciboulette": "chives", "coriandre": "cilantro",
+    "cumin": "cumin", "curcuma": "turmeric", "estragon": "tarragon", "laurier": "bay leaf",
+    "menthe": "mint", "muscade": "nutmeg", "origan": "oregano", "paprika": "paprika",
+    "persil": "parsley", "romarin": "rosemary", "safran": "saffron", "sauge": "sage", "thym": "thyme",
+    "vanille": "vanilla", "poivre": "black pepper", "sel": "salt", "piment de cayenne": "cayenne pepper",
+    "huile d'olive": "olive oil", "huile de colza": "canola oil", "huile de tournesol": "sunflower oil",
+    "huile de sesame": "sesame oil", "vinaigre": "vinegar", "vinaigre balsamique": "balsamic vinegar",
+    "moutarde": "mustard", "ketchup": "ketchup", "mayonnaise": "mayonnaise", "sauce soja": "soy sauce",
+    "sauce tomate": "tomato sauce", "concentre de tomate": "tomato paste", "bouillon de legumes": "vegetable broth",
+    "bouillon de poulet": "chicken broth", "miel": "honey", "sucre": "sugar", "sucre glace": "powdered sugar",
+    "cassonade": "brown sugar", "chocolat noir": "dark chocolate", "cacao": "cocoa powder",
+    "levure": "baking powder", "levure chimique": "baking powder", "eau": "water",
+}
 
 BRITISH_TO_AMERICAN = {
     "aubergine": "eggplant",
@@ -34,4 +112,11 @@ BRITISH_TO_AMERICAN = {
 
 def to_american_english(ingredient_name: str) -> str | None:
     """Renvoie l'equivalent americain connu, ou None si pas de mapping."""
-    return BRITISH_TO_AMERICAN.get(ingredient_name.strip().lower())
+    normalized = _key(ingredient_name)
+    return FRENCH_TO_AMERICAN.get(normalized) or BRITISH_TO_AMERICAN.get(normalized)
+
+
+def to_english(ingredient_name: str) -> str:
+    """Traduit un ingredient francais ou retourne le nom nettoye s'il est inconnu."""
+    normalized = _key(ingredient_name)
+    return FRENCH_TO_AMERICAN.get(normalized) or normalized
