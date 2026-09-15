@@ -25,9 +25,9 @@ class Goal(StrEnum):
 class UserProfile(BaseModel):
     model_config = ConfigDict(use_enum_values=True, allow_inf_nan=False, extra="forbid")
 
-    weight_kg: float = Field(gt=0, le=500)
-    height_cm: float = Field(gt=0, le=300)
-    age: int = Field(ge=18, le=120)
+    weight_kg: float = Field(ge=30, le=350)
+    height_cm: float = Field(ge=120, le=230)
+    age: int = Field(ge=18, le=100)
     sex: Sex
     activity_level: ActivityLevel
     goal: Goal

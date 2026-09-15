@@ -1,1 +1,12 @@
-{"name":"smart-fridge-nutrition","private":true,"scripts":{"build:css":"tailwindcss -i ./static/tailwind.input.css -o ./static/tailwind.css --minify"},"devDependencies":{"@tailwindcss/cli":"^4.1.0","tailwindcss":"^4.1.0"}}
+{
+  "name": "smart-fridge-nutrition",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/tailwind.input.css -o ./static/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "prettier": "^3.9.6",
+    "tailwindcss": "^4.1.0"
+  }
+}

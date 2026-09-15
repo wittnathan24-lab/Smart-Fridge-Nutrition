@@ -1,95 +1,298 @@
 <!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Smart Fridge | Nutrition Coach</title>
-    <link rel="stylesheet" href="/static/tailwind.css">
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
+    <link rel="stylesheet" href="/static/tailwind.css" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
     <div class="page-shell">
-        <header class="topbar">
-            <a class="brand" href="/app" aria-label="Smart Fridge, accueil">
-                <span class="brand-mark">SF</span>
-                <span>Smart Fridge<span class="brand-accent">.</span></span>
-            </a>
-            <nav class="topnav" aria-label="Navigation principale">
-                <a class="active" href="#dashboard">Tableau de bord</a>
-                <a href="#fridge">Mon frigo</a>
-                <a href="#recipes">Recettes</a>
-            </nav>
-            <span class="status-pill"><span class="status-dot"></span>Espace personnel</span>
-        </header>
+      <header class="topbar">
+        <a class="brand" href="/app" aria-label="Smart Fridge, accueil">
+          <span class="brand-mark">SF</span>
+          <span>Smart Fridge<span class="brand-accent">.</span></span>
+        </a>
+        <nav class="topnav" aria-label="Navigation principale">
+          <a class="active" href="#dashboard">Tableau de bord</a>
+          <a href="#fridge">Mon frigo</a>
+          <a href="#recipes">Recettes</a>
+        </nav>
+        <span class="status-pill"
+          ><span class="status-dot"></span>Espace personnel</span
+        >
+      </header>
 
-        <main id="dashboard">
-            <section id="account" class="account-bar rounded-xl">
-                <div><strong>Votre espace, vos habitudes.</strong><p>Connectez-vous ou explorez une démonstration en un clic.</p></div>
-                <button class="button button-dark" id="open-auth">Se connecter</button>
-                <button class="button button-accent" id="demo-button">Explorer la démo ↗</button>
-                <button class="text-button" id="logout" hidden>Se déconnecter</button>
-                <p id="account-feedback" role="status"></p>
-            </section>
-            <section class="hero reveal">
-                <div>
-                    <p class="eyebrow">Nutrition personnalisée · 01</p>
-                    <h1>Bien manger commence<br><em>par ce que vous avez.</em></h1>
-                    <p class="hero-copy">Votre frigo, vos objectifs, vos repas. Smart Fridge transforme vos ingrédients disponibles en décisions simples et mesurées.</p>
-                    <a class="button button-dark" href="#fridge">Composer mon frigo <span aria-hidden="true">↘</span></a>
+      <main id="dashboard">
+        <section id="account" class="account-bar rounded-xl">
+          <div>
+            <strong>Votre espace, vos habitudes.</strong>
+            <p>Connectez-vous ou explorez une démonstration en un clic.</p>
+          </div>
+          <button class="button button-dark" id="open-auth">
+            Se connecter
+          </button>
+          <button class="button button-accent" id="demo-button">
+            Explorer la démo ↗
+          </button>
+          <button class="text-button" id="logout" hidden>Se déconnecter</button>
+          <p id="account-feedback" role="status"></p>
+        </section>
+        <section class="hero reveal">
+          <div>
+            <p class="eyebrow">Nutrition personnalisée · 01</p>
+            <h1>Bien manger commence<br /><em>par ce que vous avez.</em></h1>
+            <p class="hero-copy">
+              Votre frigo, vos objectifs, vos repas. Smart Fridge transforme vos
+              ingrédients disponibles en décisions simples et mesurées.
+            </p>
+            <a class="button button-dark" href="#fridge"
+              >Composer mon frigo <span aria-hidden="true">↘</span></a
+            >
+          </div>
+          <div class="hero-note">
+            <span class="note-index">A / AUJOURD’HUI</span>
+            <strong>Un coach qui<br />connaît votre réalité.</strong>
+            <span
+              >Apports estimés · macros claires<br />suggestions sans
+              gaspillage</span
+            >
+          </div>
+        </section>
+
+        <section class="metric-strip reveal" aria-label="Résumé nutritionnel">
+          <div class="metric">
+            <span class="metric-label">Objectif calorique</span
+            ><strong id="target-calories">--</strong><small>kcal / jour</small>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Métabolisme de base</span
+            ><strong id="bmr">--</strong><small>kcal / jour</small>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Dépense estimée</span
+            ><strong id="tdee">--</strong><small>kcal / jour</small>
+          </div>
+          <div class="metric metric-action">
+            <span class="metric-label">Votre progression</span
+            ><strong id="plan-calories">0 kcal</strong
+            ><small>planifiées aujourd’hui</small>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="panel profile-panel reveal rounded-xl" id="profile">
+            <div class="panel-heading">
+              <div>
+                <span class="section-number">01</span>
+                <h2>Votre profil</h2>
+              </div>
+              <span class="panel-caption"
+                >Pour des conseils qui vous ressemblent</span
+              >
+            </div>
+            <form id="profile-form" class="form-grid">
+              <label
+                >Poids <span>kg</span
+                ><input
+                  name="weight_kg"
+                  type="number"
+                  min="30"
+                  max="350"
+                  step="0.1"
+                  placeholder="70"
+                  required
+              /></label>
+              <label
+                >Taille <span>cm</span
+                ><input
+                  name="height_cm"
+                  type="number"
+                  min="120"
+                  max="230"
+                  step="0.1"
+                  placeholder="175"
+                  required
+              /></label>
+              <label
+                >Âge <span>ans</span
+                ><input
+                  name="age"
+                  type="number"
+                  min="18"
+                  max="100"
+                  placeholder="30"
+                  required
+              /></label>
+              <label
+                >Sexe<select name="sex">
+                  <option value="female">Femme</option>
+                  <option value="male">Homme</option>
+                </select></label
+              >
+              <label class="full-width"
+                >Niveau d’activité<select name="activity_level">
+                  <option value="sedentary">Sédentaire</option>
+                  <option value="light">Légèrement actif</option>
+                  <option value="moderate" selected>Modérément actif</option>
+                  <option value="high">Très actif</option>
+                  <option value="very_high">Athlète</option>
+                </select></label
+              >
+              <fieldset class="full-width">
+                <legend>Mon objectif</legend>
+                <div class="goal-options">
+                  <label
+                    ><input type="radio" name="goal" value="loss" /><span
+                      >Perdre du poids <small>-500 kcal</small></span
+                    ></label
+                  ><label
+                    ><input
+                      type="radio"
+                      name="goal"
+                      value="maintenance"
+                      checked
+                    /><span>Maintenir <small>équilibre</small></span></label
+                  ><label
+                    ><input type="radio" name="goal" value="gain" /><span
+                      >Prendre du poids <small>+300 kcal</small></span
+                    ></label
+                  >
                 </div>
-                <div class="hero-note">
-                    <span class="note-index">A / AUJOURD’HUI</span>
-                    <strong>Un coach qui<br>connaît votre réalité.</strong>
-                    <span>Apports estimés · macros claires<br>suggestions sans gaspillage</span>
-                </div>
-            </section>
+              </fieldset>
+              <button class="button button-accent full-width" type="submit">
+                Calculer mes besoins <span>→</span>
+              </button>
+            </form>
+            <p id="profile-feedback" class="feedback" role="status"></p>
+          </div>
 
-            <section class="metric-strip reveal" aria-label="Résumé nutritionnel">
-                <div class="metric"><span class="metric-label">Objectif calorique</span><strong id="target-calories">--</strong><small>kcal / jour</small></div>
-                <div class="metric"><span class="metric-label">Métabolisme de base</span><strong id="bmr">--</strong><small>kcal / jour</small></div>
-                <div class="metric"><span class="metric-label">Dépense estimée</span><strong id="tdee">--</strong><small>kcal / jour</small></div>
-                <div class="metric metric-action"><span class="metric-label">Votre progression</span><strong id="plan-calories">0 kcal</strong><small>planifiées aujourd’hui</small></div>
-            </section>
+          <div class="panel fridge-panel reveal rounded-xl" id="fridge">
+            <div class="panel-heading">
+              <div>
+                <span class="section-number">02</span>
+                <h2>Mon frigo</h2>
+              </div>
+              <span class="panel-caption">Ce que vous avez sous la main</span>
+            </div>
+            <form id="fridge-form" class="add-item-form">
+              <label class="sr-only" for="ingredient-name">Ingrédient</label
+              ><input
+                id="ingredient-name"
+                name="name"
+                placeholder="Ajouter un ingrédient…"
+                required
+              /><label class="sr-only" for="ingredient-quantity"
+                >Quantité en grammes</label
+              ><input
+                id="ingredient-quantity"
+                name="quantity_g"
+                type="number"
+                min="1"
+                placeholder="g"
+                required
+              /><button
+                class="icon-button"
+                type="submit"
+                aria-label="Ajouter l’ingrédient"
+              >
+                +
+              </button>
+            </form>
+            <div id="fridge-list" class="ingredient-list">
+              <p class="empty-state">
+                Votre frigo est encore vide.<br /><span
+                  >Ajoutez vos premiers ingrédients pour commencer.</span
+                >
+              </p>
+            </div>
+            <button id="suggestions-button" class="text-button" type="button">
+              Trouver des recettes avec mon frigo <span>↗</span>
+            </button>
+            <p id="fridge-feedback" class="feedback" role="status"></p>
+          </div>
+        </section>
 
-            <section class="workspace-grid">
-                <div class="panel profile-panel reveal rounded-xl" id="profile">
-                    <div class="panel-heading"><div><span class="section-number">01</span><h2>Votre profil</h2></div><span class="panel-caption">Pour des conseils qui vous ressemblent</span></div>
-                    <form id="profile-form" class="form-grid">
-                        <label>Poids <span>kg</span><input name="weight_kg" type="number" min="1" max="500" step="0.1" placeholder="70" required></label>
-                        <label>Taille <span>cm</span><input name="height_cm" type="number" min="1" max="300" step="0.1" placeholder="175" required></label>
-                        <label>Âge <span>ans</span><input name="age" type="number" min="18" max="120" placeholder="30" required></label>
-                        <label>Sexe<select name="sex"><option value="female">Femme</option><option value="male">Homme</option></select></label>
-                        <label class="full-width">Niveau d’activité<select name="activity_level"><option value="sedentary">Sédentaire</option><option value="light">Légèrement actif</option><option value="moderate" selected>Modérément actif</option><option value="high">Très actif</option><option value="very_high">Athlète</option></select></label>
-                        <fieldset class="full-width"><legend>Mon objectif</legend><div class="goal-options"><label><input type="radio" name="goal" value="loss"><span>Perdre du poids <small>-500 kcal</small></span></label><label><input type="radio" name="goal" value="maintenance" checked><span>Maintenir <small>équilibre</small></span></label><label><input type="radio" name="goal" value="gain"><span>Prendre du poids <small>+300 kcal</small></span></label></div></fieldset>
-                        <button class="button button-accent full-width" type="submit">Calculer mes besoins <span>→</span></button>
-                    </form>
-                    <p id="profile-feedback" class="feedback" role="status"></p>
-                </div>
-
-                <div class="panel fridge-panel reveal rounded-xl" id="fridge">
-                    <div class="panel-heading"><div><span class="section-number">02</span><h2>Mon frigo</h2></div><span class="panel-caption">Ce que vous avez sous la main</span></div>
-                    <form id="fridge-form" class="add-item-form"><label class="sr-only" for="ingredient-name">Ingrédient</label><input id="ingredient-name" name="name" placeholder="Ajouter un ingrédient…" required><label class="sr-only" for="ingredient-quantity">Quantité en grammes</label><input id="ingredient-quantity" name="quantity_g" type="number" min="1" placeholder="g" required><button class="icon-button" type="submit" aria-label="Ajouter l’ingrédient">+</button></form>
-                    <div id="fridge-list" class="ingredient-list"><p class="empty-state">Votre frigo est encore vide.<br><span>Ajoutez vos premiers ingrédients pour commencer.</span></p></div>
-                    <button id="suggestions-button" class="text-button" type="button">Trouver des recettes avec mon frigo <span>↗</span></button>
-                    <p id="fridge-feedback" class="feedback" role="status"></p>
-                </div>
-            </section>
-
-            <section class="panel plan-panel rounded-xl" id="plan">
-                <div class="section-heading"><div><p class="eyebrow">Vos repas · au fil de la journée</p><h2>Mon équilibre du jour</h2></div><label>Journée <input type="date" id="plan-day" required></label></div>
-                <div id="macro-gauges" class="macro-grid"></div>
-                <div id="plan-list" class="ingredient-list"></div>
-                <p class="panel-caption">Repères indicatifs pour adultes : ils ne remplacent pas un accompagnement individuel. Les données de démonstration sont illustratives.</p>
-            </section>
-            <section class="recipes-section reveal" id="recipes">
-                <div class="section-heading"><div><p class="eyebrow">À partir de vos ingrédients · 03</p><h2>Des idées pour aujourd’hui</h2></div><span id="recipe-count" class="recipe-count">Suggestions personnalisées</span></div>
-                <div id="recipe-list" class="recipe-grid"><div class="recipe-placeholder"><span>✦</span><p>Vos recettes apparaîtront ici.</p><small>Ajoutez un ingrédient puis lancez une recherche.</small></div></div>
-            </section>
-        </main>
-        <footer><span>SMART FRIDGE / NUTRITION COACH</span><span>Des choix simples, des repas qui comptent.</span></footer>
+        <section class="panel plan-panel rounded-xl" id="plan">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Vos repas · au fil de la journée</p>
+              <h2>Mon équilibre du jour</h2>
+            </div>
+            <label>Journée <input type="date" id="plan-day" required /></label>
+          </div>
+          <button
+            id="generate-plan"
+            class="button button-accent mt-4"
+            type="button"
+          >
+            Composer ma journée automatiquement ↗
+          </button>
+          <p id="plan-feedback" class="feedback" role="status"></p>
+          <div id="macro-gauges" class="macro-grid"></div>
+          <div id="plan-list" class="ingredient-list"></div>
+          <p class="panel-caption">
+            Repères indicatifs pour adultes : ils ne remplacent pas un
+            accompagnement individuel. Les données de démonstration sont
+            illustratives.
+          </p>
+        </section>
+        <section class="recipes-section reveal" id="recipes">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">À partir de vos ingrédients · 03</p>
+              <h2>Des idées pour aujourd’hui</h2>
+            </div>
+            <span id="recipe-count" class="recipe-count"
+              >Suggestions personnalisées</span
+            >
+          </div>
+          <div id="recipe-list" class="recipe-grid">
+            <div class="recipe-placeholder">
+              <span>✦</span>
+              <p>Vos recettes apparaîtront ici.</p>
+              <small>Ajoutez un ingrédient puis lancez une recherche.</small>
+            </div>
+          </div>
+        </section>
+      </main>
+      <footer>
+        <span>SMART FRIDGE / NUTRITION COACH</span
+        ><span>Des choix simples, des repas qui comptent.</span>
+      </footer>
     </div>
-    <dialog id="auth-dialog"><form id="auth-form" class="form-grid"><h2 class="full-width">Bienvenue chez vous.</h2><label class="full-width">Adresse e-mail<input type="email" name="email" autocomplete="email" required></label><label class="full-width">Mot de passe<input type="password" name="password" minlength="10" maxlength="128" autocomplete="current-password" required></label><small class="full-width">10 caractères minimum.</small><button class="button button-dark" name="action" value="login">Connexion</button><button class="button button-accent" name="action" value="register">Créer mon compte</button><p id="auth-feedback" class="feedback full-width" role="alert"></p></form><button class="text-button close-dialog" type="button">Fermer</button></dialog>
-    <dialog id="recipe-dialog"><button class="text-button close-dialog" type="button">Fermer ×</button><div id="recipe-detail"></div></dialog>
+    <dialog id="auth-dialog">
+      <form id="auth-form" class="form-grid">
+        <h2 class="full-width">Bienvenue chez vous.</h2>
+        <label class="full-width"
+          >Adresse e-mail<input
+            type="email"
+            name="email"
+            autocomplete="email"
+            required /></label
+        ><label class="full-width"
+          >Mot de passe<input
+            type="password"
+            name="password"
+            minlength="10"
+            maxlength="128"
+            autocomplete="current-password"
+            required /></label
+        ><small class="full-width">10 caractères minimum.</small
+        ><button class="button button-dark" name="action" value="login">
+          Connexion</button
+        ><button class="button button-accent" name="action" value="register">
+          Créer mon compte
+        </button>
+        <p id="auth-feedback" class="feedback full-width" role="alert"></p>
+      </form>
+      <button class="text-button close-dialog" type="button">Fermer</button>
+    </dialog>
+    <dialog id="recipe-dialog">
+      <button class="text-button close-dialog" type="button">Fermer ×</button>
+      <div id="recipe-detail"></div>
+    </dialog>
     <script src="/static/app.js"></script>
-</body>
+  </body>
 </html>

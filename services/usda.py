@@ -15,6 +15,8 @@ class USDAError(Exception):
 
 async def search_food(client: httpx.AsyncClient, query: str) -> USDAFoodMatch | None:
     settings = get_settings()
+    if not settings.usda_api_key:
+        return None
     try:
         response = await client.post(
             f"{settings.usda_base_url}/foods/search",
@@ -31,10 +33,13 @@ async def search_food(client: httpx.AsyncClient, query: str) -> USDAFoodMatch | 
     except httpx.HTTPStatusError as exc:
         raise USDAError(_status_error_message(exc, query)) from exc
 
-    foods = response.json().get("foods") or []
-    if not foods:
-        return None
-    return USDAFoodMatch.model_validate(foods[0])
+    try:
+        foods = response.json().get("foods") or []
+        if not foods:
+            return None
+        return USDAFoodMatch.model_validate(foods[0])
+    except (ValueError, AttributeError, TypeError, KeyError) as exc:
+        raise USDAError("Format USDA invalide") from exc
 
 
 def _status_error_message(exc: httpx.HTTPStatusError, query: str) -> str:

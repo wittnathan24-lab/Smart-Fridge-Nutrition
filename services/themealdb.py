@@ -33,8 +33,11 @@ async def search_recipes_by_ingredient(
             _status_error_message(exc, f"la recherche de recettes pour '{ingredient}'")
         ) from exc
 
-    meals = response.json().get("meals") or []
-    return [RecipeSummary.model_validate(meal) for meal in meals]
+    try:
+        meals = response.json().get("meals") or []
+        return [RecipeSummary.model_validate(meal) for meal in meals]
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise TheMealDBError("Format TheMealDB invalide") from exc
 
 
 async def get_recipe_detail(client: httpx.AsyncClient, meal_id: str) -> RecipeDetail | None:
@@ -56,10 +59,13 @@ async def get_recipe_detail(client: httpx.AsyncClient, meal_id: str) -> RecipeDe
             _status_error_message(exc, f"la recuperation de la recette {meal_id}")
         ) from exc
 
-    meals = response.json().get("meals") or []
-    if not meals:
-        return None
-    return RecipeDetail.model_validate(meals[0])
+    try:
+        meals = response.json().get("meals") or []
+        if not meals:
+            return None
+        return RecipeDetail.model_validate(meals[0])
+    except (ValueError, AttributeError, TypeError, KeyError) as exc:
+        raise TheMealDBError("Format TheMealDB invalide") from exc
 
 
 def _status_error_message(exc: httpx.HTTPStatusError, action: str) -> str:

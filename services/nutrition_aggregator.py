@@ -21,11 +21,11 @@ _GRAMS_PATTERN = re.compile(r"^\s*(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>kg|g)\s*
 
 
 def _parse_grams(measure: str | None) -> float | None:
-    match = _GRAMS_PATTERN.fullmatch(measure or '')
+    match = _GRAMS_PATTERN.fullmatch(measure or "")
     if not match:
         return None
-    value = float(match.group('value').replace(',', '.'))
-    return value * (1000 if match.group('unit').lower() == 'kg' else 1) if value > 0 else None
+    value = float(match.group("value").replace(",", "."))
+    return value * (1000 if match.group("unit").lower() == "kg" else 1) if value > 0 else None
 
 
 def _scale(nutrients: NutrientProfile, grams: float) -> NutrientProfile:
@@ -37,9 +37,7 @@ def _scale(nutrients: NutrientProfile, grams: float) -> NutrientProfile:
         protein_g=round(nutrients.protein_g * factor, 2)
         if nutrients.protein_g is not None
         else None,
-        carbs_g=round(nutrients.carbs_g * factor, 2)
-        if nutrients.carbs_g is not None
-        else None,
+        carbs_g=round(nutrients.carbs_g * factor, 2) if nutrients.carbs_g is not None else None,
         fat_g=round(nutrients.fat_g * factor, 2) if nutrients.fat_g is not None else None,
     )
 
@@ -79,10 +77,14 @@ async def _lookup_ingredient_nutrition(
 
 def _sum_estimated(results: list[IngredientNutritionResult]) -> NutrientProfile:
     estimated = [r.estimated_nutrients for r in results if r.estimated_nutrients is not None]
-    return NutrientProfile(**{
-        field: round(sum(values), 2) if (values := [getattr(n, field) for n in estimated if getattr(n, field) is not None]) else None
-        for field in NutrientProfile.model_fields
-    })
+    return NutrientProfile(
+        **{
+            field: round(sum(values), 2)
+            if (values := [getattr(n, field) for n in estimated if getattr(n, field) is not None])
+            else None
+            for field in NutrientProfile.model_fields
+        }
+    )
 
 
 async def compute_recipe_nutrition(
