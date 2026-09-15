@@ -1,3 +1,4 @@
+from demo import router as demo_router, RECIPES
 import asyncio
 from pathlib import Path
 from auth import router as auth_router, current_user
@@ -37,6 +38,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(demo_router)
 app.include_router(personal_router)
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
@@ -122,6 +124,11 @@ async def search_recipes(
 async def get_recipe(
 	meal_id: str, client: httpx.AsyncClient = Depends(get_http_client)
 ) -> RecipeDetail:
+	if meal_id.startswith("demo-"):
+		data = next((r for r in RECIPES if r["meal_id"] == meal_id), None)
+		if data is None:
+			raise HTTPException(404, "Recette introuvable")
+		return RecipeDetail.model_validate(data)
 	try:
 		recipe = await get_recipe_detail(client, meal_id)
 	except TheMealDBError as exc:
@@ -165,3 +172,7 @@ async def suggest_recipes_from_fridge(client: httpx.AsyncClient = Depends(get_ht
             recipes[recipe.meal_id] = recipe
             scores[recipe.meal_id] = scores.get(recipe.meal_id, 0) + 1
     return sorted(recipes.values(), key=lambda r: (-scores[r.meal_id], r.name))[:18]
+
+@app.get('/demo/recipes', dependencies=[Depends(current_user)], tags=['Demo'])
+def demo_recipes():
+    return RECIPES

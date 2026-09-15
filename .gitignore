@@ -7,9 +7,10 @@ venv/
 !.env.example
 .pytest_cache/
 .vscode/
-.env.example
 
 *.db
 *.db-*
 .coverage
 
+
+node_modules/

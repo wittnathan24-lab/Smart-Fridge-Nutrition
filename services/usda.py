@@ -27,7 +27,7 @@ async def search_food(client: httpx.AsyncClient, query: str) -> USDAFoodMatch | 
     except httpx.RequestError as exc:
         raise USDAError(f"Timeout lors de la recherche USDA pour '{query}'") from exc
     except ValueError as exc:
-        raise USDAError("Réponse externe invalide") from exc
+        raise USDAError("RÃ©ponse externe invalide") from exc
     except httpx.HTTPStatusError as exc:
         raise USDAError(_status_error_message(exc, query)) from exc
 
