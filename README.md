@@ -1,85 +1,107 @@
 # Smart Fridge & Nutrition Coach
 
-Application web fullstack de coaching nutritionnel intelligent. Elle permettra de renseigner son profil corporel, de gérer le contenu de son frigo virtuel et de recevoir des suggestions de recettes avec leurs apports caloriques et macronutritionnels.
+Une application fullstack pour partir des ingrédients disponibles, explorer des recettes et composer une journée de repas avec un suivi énergétique et des macronutriments.
 
-## Démarrage rapide
+**FastAPI · Pydantic · SQLite · JWT · httpx/asyncio · Jinja2 · Tailwind CSS**
 
-Créer un environnement virtuel puis installer les dépendances :
+## Essayer en deux minutes
+
+Python 3.11 ou supérieur.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+python -m uvicorn main:app --reload
 ```
 
-Copier `.env.example` en `.env` et y renseigner votre clé USDA FoodData Central
-(`USDA_API_KEY`, fournie par l'intervenant) :
+Ouvrir **http://127.0.0.1:8000**, puis **Explorer la démo**. Aucune clé API n’est nécessaire pour cette démonstration. Chaque visiteur reçoit un espace distinct avec un profil fictif, quatre ingrédients et trois recettes illustratives. Les données sont conservées dans SQLite.
+
+Pour un compte personnel, utiliser **Se connecter → Créer mon compte**. Les recettes sont alors recherchées sur TheMealDB. Renseigner `USDA_API_KEY` dans `.env` pour obtenir leurs estimations nutritionnelles.
+
+- Interface : `/` ou `/app`
+- Documentation interactive : `/docs` (bouton **Authorize**, jeton obtenu avec `/auth/login`)
+- Santé du serveur : `/health`
+- Informations API : `/api`
+
+## Fonctionnalités livrées
+
+- Inscription et connexion, mots de passe hachés avec scrypt, JWT signé et limité à deux heures.
+- Profil corporel persistant, calcul Mifflin–St Jeor, dépense énergétique et cible selon l’objectif.
+- Frigo privé : ajout, modification de quantité et suppression.
+- Suggestions dédupliquées et classées par nombre d’ingrédients correspondants.
+- Détail des recettes, préparation, ingrédients et apports estimés via USDA.
+- Plan quotidien persistant, portions ajustables, ajout et retrait des repas.
+- Génération de trois repas ajustés à la cible énergétique pour une journée vide.
+- Jauges calories/protéines/glucides/lipides, états vides, erreurs lisibles et interface responsive.
+- Mode de démonstration indépendant des services externes.
+
+## Configuration
+
+| Variable             | Usage                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `USDA_API_KEY`       | Clé FoodData Central ; facultative pour démarrer et pour la démo                                  |
+| `JWT_SECRET`         | Secret aléatoire d’au moins 32 caractères ; requis pour conserver les sessions entre redémarrages |
+| `DATABASE_PATH`      | Chemin SQLite, `smart_fridge.db` par défaut                                                       |
+| `THEMEALDB_BASE_URL` | URL du service de recettes, configurable dans les settings                                        |
+| `USDA_BASE_URL`      | URL du service nutritionnel, configurable dans les settings                                       |
+
+Générer un secret avec `python -c "import secrets; print(secrets.token_urlsafe(48))"`, puis le placer dans `.env`. Sans secret configuré, une clé aléatoire de développement est créée au démarrage. Ne jamais versionner `.env` ni la base.
+
+## Architecture
+
+```text
+Navigateur : Jinja2 + JavaScript + Tailwind compilé
+                 │ JSON / Bearer JWT
+                 ▼
+FastAPI ─── auth.py : comptes et authentification
+   │       personal.py : profils et journal quotidien
+   │       models.py / schemas.py : validation et calculs
+   │       database.py : SQLite et requêtes paramétrées
+   └────── services/ : TheMealDB → normalisation → USDA → agrégation
+```
+
+Les requêtes SQL filtrent systématiquement les données privées sur l’utilisateur authentifié. Les tests vérifient qu’un second compte ne peut ni lire ni modifier les données du premier. Les appels aux fournisseurs passent par un client HTTP partagé et les recherches indépendantes s’exécutent avec `asyncio.gather`.
+
+## Calculs et limites assumées
+
+- BMR : `10 × poids + 6,25 × taille − 5 × âge + offset` (5 ou −161). TDEE : BMR × facteur d’activité.
+- Objectifs du brief : −500 kcal, maintien ou +300 kcal. La cible calculée ne descend pas sous le BMR. Le formulaire est limité aux adultes et à des bornes de saisie documentées dans `models.py`.
+- Les repères de macros utilisent une répartition illustrative 25 % protéines, 45 % glucides, 30 % lipides. Il ne s’agit pas d’une prescription individuelle.
+- USDA est interrogé en POST avec `dataType: ["SR Legacy", "Foundation"]`. Les nutriments sont identifiés par leurs IDs 1008, 1003, 1005 et 1004.
+- Les mesures explicites en g/kg sont converties. Les fractions ambiguës, cuillères, tasses et pièces ne sont pas extrapolées sans densité fiable. Une donnée inconnue reste `null`, jamais zéro.
+- Les totaux externes concernent la recette entière. La fraction saisie permet de répartir cette recette. Les recettes de démo sont explicitement données pour une portion.
+- Une recette partiellement quantifiée reste consultable, mais son ajout au journal est désactivé. La génération réelle nécessite trois recettes entièrement quantifiées parmi les trois premières suggestions ; elle peut donc être indisponible avec les données TheMealDB.
+- La génération ajuste l’énergie en répartissant 30/35/35 % sur trois repas ; elle ne garantit pas un optimum de macros ni une disponibilité suffisante des quantités dans le frigo.
+- La sélection USDA prend le premier résultat brut : une correspondance lexicale ne garantit pas une équivalence parfaite cru/cuit. Les apports sont des estimations.
+
+## Vérifier et contribuer
 
 ```powershell
-copy .env.example .env
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python -m ruff check main.py auth.py config.py database.py demo.py middleware.py models.py personal.py schemas.py services tests
+python -m ruff format --check main.py auth.py config.py database.py demo.py middleware.py models.py personal.py schemas.py services tests
 ```
 
-Lancer l'API en développement :
+Les tests utilisent des bases temporaires et des réponses HTTP simulées. Ils ne consomment aucun quota externe. Ils couvrent l’authentification, les données privées, les calculs, les mesures, les structures USDA/TheMealDB, les pannes et la génération d’une journée. La CI GitHub exécute ces contrôles à chaque push et pull request.
+
+Pour modifier les styles (Node.js nécessaire uniquement à la compilation) :
 
 ```powershell
-uvicorn main:app --reload
+npm ci
+npm run build:css
 ```
 
-L'API est disponible sur `http://127.0.0.1:8000`.
+Le CSS compilé est versionné : le serveur Python n’a pas besoin de Node.js. Les polices Google disposent de polices système de remplacement.
 
-- Interface utilisateur : `http://127.0.0.1:8000/app`
-- Documentation interactive : `http://127.0.0.1:8000/docs`
-- Vérification de santé : `http://127.0.0.1:8000/health`
+## Présentation portfolio
 
-## Premier calcul nutritionnel
+Consulter [le scénario de démonstration](docs/PORTFOLIO.md) et [les décisions techniques](docs/ARCHITECTURE.md). L’historique Git conserve le socle existant puis les étapes sécurité, interface, génération et validation.
 
-L'endpoint `POST /profile/nutrition` accepte un profil et renvoie le métabolisme de base,
-la dépense énergétique totale et la cible calorique selon l'objectif.
+## Exécution et exploitation
 
-```json
-{
-	"weight_kg": 70,
-	"height_cm": 175,
-	"age": 30,
-	"sex": "male",
-	"activity_level": "moderate",
-	"goal": "loss"
-}
-```
+Cette version est destinée à une démonstration locale. Avant exposition publique : HTTPS, secret stable, sauvegardes SQLite, limitation de requêtes au proxy, politique de conservation des comptes de démo et procédure de suppression des comptes. Le limiteur fourni couvre 20 tentatives d’authentification par minute et par adresse dans un seul processus. Il n’est pas distribué. Les JWT sont stockés dans la session de l’onglet ; se déconnecter les retire du navigateur mais ne révoque pas une copie déjà émise.
 
-Le frigo est actuellement conservé en mémoire pour préparer l’intégration future de la base
-de données. Les endpoints disponibles sont `POST /fridge/items` et `GET /fridge/items`.
-
-## Recettes et nutrition (TheMealDB + USDA)
-
-- `GET /recipes/search?ingredient=salmon` — recherche de recettes TheMealDB contenant
-  un ingrédient.
-- `GET /recipes/{meal_id}` — détail d'une recette, avec les ingrédients aplatis en
-  `list[IngredientQuantity]` (TheMealDB éclate ces données sur 20 paires de clés en interne).
-- `GET /recipes/{meal_id}/nutrition` — croise la recette avec USDA FoodData Central :
-  calories et macros (protéines/glucides/lipides) par ingrédient identifiées via leurs IDs
-  officiels (1008/1003/1005/1004), filtrées sur `dataType: ["SR Legacy", "Foundation"]` pour
-  exclure les plats industriels. Les ingrédients introuvables dans l'USDA (même après le
-  mapping anglais britannique → américain, ex. *aubergine* → *eggplant*) sont listés dans
-  `unmatched_ingredients` plutôt que de faire échouer tout le calcul. Seules les quantités
-  exprimées en grammes/kilogrammes sont converties dans le total estimé ; les autres unités
-  (`cup`, `tbsp`...) restent disponibles par ingrédient via `nutrients_per_100g` sans entrer
-  dans le total, faute de table de conversion fiable.
-- `GET /fridge/suggestions` — recettes TheMealDB correspondant à au moins un ingrédient
-  du frigo courant.
-
-Les ingrédients peuvent être saisis en français dans le frigo (`poivron rouge`, `crème
-fraîche`, `œufs`, etc.). Le dictionnaire de traduction couvre les fruits, légumes, viandes,
-poissons, produits laitiers, céréales, légumineuses, noix, herbes, épices, huiles et sauces,
-avec normalisation des accents et compatibilité avec les variantes anglaises de TheMealDB.
-
-Les appels TheMealDB/USDA sont résilients aux timeouts et aux réponses `429 Too Many
-Requests` (levée d'une erreur métier traduite en `502` plutôt qu'un crash serveur).
-
-## Stack prévue
-
-- FastAPI et Pydantic
-- Jinja2 et Tailwind CSS
-- SQLite puis PostgreSQL
-- TheMealDB et USDA FoodData Central
-- Authentification JWT
+La vérification d’e-mail, la réinitialisation des mots de passe, PostgreSQL et la gestion des allergies ne sont pas implémentés. Aucun déploiement public n’est effectué.
