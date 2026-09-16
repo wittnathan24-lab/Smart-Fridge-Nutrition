@@ -1,6 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from services.ingredient_catalogue import canonical_name
 
 
 class Sex(StrEnum):
@@ -46,6 +48,11 @@ class FridgeItem(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, allow_inf_nan=False, extra="forbid")
     name: str = Field(min_length=1, max_length=100)
     quantity_g: float = Field(gt=0, le=100000)
+
+    @field_validator("name")
+    @classmethod
+    def recognized_name(cls, value: str) -> str:
+        return canonical_name(value)
 
 
 ACTIVITY_FACTORS = {

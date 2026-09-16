@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Smart Fridge | Nutrition Coach</title>
-    <link rel="stylesheet" href="/static/tailwind.css" />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/tailwind.css?v={{ asset_version }}" />
+    <link rel="stylesheet" href="/static/styles.css?v={{ asset_version }}" />
   </head>
   <body>
     <div class="page-shell">
@@ -177,13 +177,30 @@
               <span class="panel-caption">Ce que vous avez sous la main</span>
             </div>
             <form id="fridge-form" class="add-item-form">
-              <label class="sr-only" for="ingredient-name">Ingrédient</label
-              ><input
-                id="ingredient-name"
-                name="name"
-                placeholder="Ajouter un ingrédient…"
-                required
-              /><label class="sr-only" for="ingredient-quantity"
+              <div class="ingredient-picker">
+                <label class="sr-only" for="ingredient-name">Ingrédient</label>
+                <input
+                  id="ingredient-name"
+                  name="name"
+                  placeholder="Rechercher un ingrédient…"
+                  required
+                  maxlength="100"
+                  autocomplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="ingredient-options"
+                  aria-describedby="ingredient-help"
+                />
+                <ul
+                  id="ingredient-options"
+                  class="ingredient-options"
+                  role="listbox"
+                  aria-label="Ingrédients reconnus"
+                  hidden
+                ></ul>
+              </div>
+              <label class="sr-only" for="ingredient-quantity"
                 >Quantité en grammes</label
               ><input
                 id="ingredient-quantity"
@@ -200,6 +217,9 @@
                 +
               </button>
             </form>
+            <p id="ingredient-help" class="feedback" role="status">
+              Choisissez un ingrédient dans les suggestions.
+            </p>
             <div id="fridge-list" class="ingredient-list">
               <p class="empty-state">
                 Votre frigo est encore vide.<br /><span
@@ -293,6 +313,6 @@
       <button class="text-button close-dialog" type="button">Fermer ×</button>
       <div id="recipe-detail"></div>
     </dialog>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v={{ asset_version }}"></script>
   </body>
 </html>

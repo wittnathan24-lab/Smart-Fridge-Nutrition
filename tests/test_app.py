@@ -99,7 +99,7 @@ def test_inventory_isolation_and_crud(client):
     assert client.get("/fridge/items", headers=bob).json() == []
     assert (
         client.put(
-            "/fridge/items/" + str(item["id"]), headers=bob, json={"name": "Volé", "quantity_g": 1}
+            "/fridge/items/" + str(item["id"]), headers=bob, json={"name": "Riz", "quantity_g": 1}
         ).status_code
         == 404
     )
@@ -328,3 +328,53 @@ def test_suggestions_rank_and_survive_partial_failure(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["meal_id"] == "shared"
     assert len(response.json()) == 3
+
+
+@pytest.mark.parametrize(
+    "entered,expected",
+    [
+        ("  POuLET  ", "Poulet"),
+        ("epinards", "Épinard"),
+        ("oeufs", "Œuf"),
+        ("crème fraîche", "Crème fraîche"),
+        ("chicken", "Poulet"),
+        ("tomates", "Tomate"),
+        ("boeuf hache", "Bœuf haché"),
+    ],
+)
+def test_recognized_ingredients_are_canonical(client, entered, expected):
+    response = client.post(
+        "/fridge/items", headers=account(client), json={"name": entered, "quantity_g": 100}
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == expected
+
+
+def test_unknown_ingredient_rejected_on_create_and_update(client):
+    headers = account(client)
+    item = client.post(
+        "/fridge/items", headers=headers, json={"name": "Poulet", "quantity_g": 100}
+    ).json()
+    invalid = {"name": "poullett inconnu", "quantity_g": 100}
+    assert client.post("/fridge/items", headers=headers, json=invalid).status_code == 422
+    assert (
+        client.put("/fridge/items/" + str(item["id"]), headers=headers, json=invalid).status_code
+        == 422
+    )
+    assert client.get("/fridge/items", headers=headers).json()[0]["name"] == "Poulet"
+
+
+def test_catalogue_is_public_and_consistent(client):
+    from services.ingredient_catalogue import canonical_name
+    from services.ingredient_mapping import to_english
+
+    response = client.get("/ingredients")
+    assert response.status_code == 200
+    entries = response.json()
+    assert len(entries) > 150
+    assert len({e["name"] for e in entries}) == len(entries)
+    for entry in entries:
+        assert canonical_name(entry["name"]) == entry["name"]
+        for alias in entry["aliases"]:
+            assert canonical_name(alias) == entry["name"]
+        assert to_english(entry["name"])

@@ -217,10 +217,17 @@ $("#fridge-form").onsubmit = (e) => {
   if (!requireAccount()) return;
   action(e.submitter, "#fridge-feedback", async () => {
     const data = Object.fromEntries(new FormData(e.target));
+    if (!validateIngredient()) return;
+    data.name = ingredientInput.value;
     data.quantity_g = Number(data.quantity_g);
     await api("/fridge/items", { method: "POST", body: JSON.stringify(data) });
     renderInventory(await api("/fridge/items"));
     e.target.reset();
+    closeIngredients();
+    message(
+      "#ingredient-help",
+      "Choisissez un ingrédient dans les suggestions.",
+    );
     message("#fridge-feedback", "Ingrédient ajouté.");
   });
 };
@@ -367,3 +374,164 @@ $("#generate-plan").onclick = (e) => {
     message("#plan-feedback", result.message);
   });
 };
+
+// Local suggestions stay available while typing, without a request per keystroke.
+const ingredientInput = $("#ingredient-name");
+const ingredientOptions = $("#ingredient-options");
+let ingredientCatalogue = [],
+  ingredientMatches = [],
+  activeIngredient = -1;
+const normalizeIngredient = (text) =>
+  text
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae")
+    .replace(/’/g, "'")
+    .replace(/\s+/g, " ");
+function editDistance(a, b) {
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++)
+      next[j] = Math.min(
+        next[j - 1] + 1,
+        row[j] + 1,
+        row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    row = next;
+  }
+  return row[b.length];
+}
+function closeIngredients() {
+  ingredientOptions.hidden = true;
+  ingredientInput.setAttribute("aria-expanded", "false");
+  ingredientInput.removeAttribute("aria-activedescendant");
+  activeIngredient = -1;
+}
+function chooseIngredient(index) {
+  const item = ingredientMatches[index];
+  if (!item) return;
+  ingredientInput.value = item.name;
+  ingredientInput.setCustomValidity("");
+  closeIngredients();
+  message("#ingredient-help", `${item.name} : ingrédient reconnu.`);
+  ingredientInput.focus();
+}
+function showIngredients() {
+  const q = normalizeIngredient(ingredientInput.value);
+  ingredientInput.setCustomValidity("");
+  activeIngredient = -1;
+  ingredientInput.removeAttribute("aria-activedescendant");
+  ingredientMatches = ingredientCatalogue
+    .map((item) => {
+      const keys = [normalizeIngredient(item.name), ...item.aliases];
+      let score = keys.some((k) => k === q)
+        ? 0
+        : keys.some((k) => k.startsWith(q))
+          ? 1
+          : keys.some((k) => k.includes(q))
+            ? 2
+            : 99;
+      if (score === 99 && q.length >= 3) {
+        const distance = Math.min(...keys.map((k) => editDistance(q, k)));
+        if (distance <= (q.length > 5 ? 2 : 1)) score = 3 + distance;
+      }
+      return { ...item, score };
+    })
+    .filter((i) => i.score < 99)
+    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name, "fr"))
+    .slice(0, 8);
+  ingredientOptions.innerHTML = ingredientMatches
+    .map(
+      (item, i) =>
+        `<li id="ingredient-option-${i}" role="option" aria-selected="false" data-index="${i}">${esc(item.name)}</li>`,
+    )
+    .join("");
+  ingredientOptions.hidden = !ingredientMatches.length;
+  ingredientInput.setAttribute(
+    "aria-expanded",
+    String(!!ingredientMatches.length),
+  );
+  message(
+    "#ingredient-help",
+    ingredientCatalogue.length
+      ? ingredientMatches.length
+        ? `${ingredientMatches.length} suggestion${ingredientMatches.length > 1 ? "s" : ""}. Utilisez les flèches puis Entrée, ou cliquez sur un nom.`
+        : "Aucun ingrédient reconnu. Essayez un autre nom."
+      : "Le catalogue est indisponible. Rechargez la page pour réessayer.",
+  );
+}
+function validateIngredient() {
+  const q = normalizeIngredient(ingredientInput.value);
+  const item = ingredientCatalogue.find(
+    (i) => normalizeIngredient(i.name) === q || i.aliases.includes(q),
+  );
+  if (item) {
+    ingredientInput.value = item.name;
+    ingredientInput.setCustomValidity("");
+    return true;
+  }
+  ingredientInput.setCustomValidity(
+    "Choisissez un ingrédient reconnu dans les suggestions.",
+  );
+  ingredientInput.reportValidity();
+  return false;
+}
+ingredientInput.addEventListener("input", showIngredients);
+ingredientInput.addEventListener("focus", showIngredients);
+ingredientInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeIngredients();
+    return;
+  }
+  if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+    event.preventDefault();
+    if (ingredientOptions.hidden) showIngredients();
+    if (!ingredientMatches.length) return;
+    if (activeIngredient === -1 && event.key === "ArrowUp")
+      activeIngredient = 0;
+    activeIngredient =
+      (activeIngredient +
+        (event.key === "ArrowDown" ? 1 : -1) +
+        ingredientMatches.length) %
+      ingredientMatches.length;
+    [...ingredientOptions.children].forEach((el, i) =>
+      el.setAttribute("aria-selected", String(i === activeIngredient)),
+    );
+    ingredientInput.setAttribute(
+      "aria-activedescendant",
+      `ingredient-option-${activeIngredient}`,
+    );
+    ingredientOptions.children[activeIngredient].scrollIntoView({
+      block: "nearest",
+    });
+  } else if (event.key === "Enter" && !ingredientOptions.hidden) {
+    event.preventDefault();
+    if (activeIngredient >= 0) chooseIngredient(activeIngredient);
+    else if (ingredientMatches.length === 1) chooseIngredient(0);
+  }
+});
+ingredientOptions.addEventListener("pointerdown", (event) =>
+  event.preventDefault(),
+);
+ingredientOptions.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-index]");
+  if (option) chooseIngredient(Number(option.dataset.index));
+});
+ingredientInput.addEventListener("blur", closeIngredients);
+api("/ingredients")
+  .then((items) => {
+    ingredientCatalogue = items;
+    if (document.activeElement === ingredientInput) showIngredients();
+  })
+  .catch(() =>
+    message(
+      "#ingredient-help",
+      "Le catalogue est indisponible. Rechargez la page pour réessayer.",
+      true,
+    ),
+  );

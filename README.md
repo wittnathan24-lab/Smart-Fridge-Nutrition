@@ -30,6 +30,7 @@ Pour un compte personnel, utiliser **Se connecter → Créer mon compte**. Les r
 - Inscription et connexion, mots de passe hachés avec scrypt, JWT signé et limité à deux heures.
 - Profil corporel persistant, calcul Mifflin–St Jeor, dépense énergétique et cible selon l’objectif.
 - Frigo privé : ajout, modification de quantité et suppression.
+- Autocomplétion locale des ingrédients avec recherche sans accents, suggestions pour les petites fautes, navigation clavier et noms canoniques validés côté serveur. Le catalogue partage le dictionnaire de traduction des intégrations ; il ne garantit pas qu’une recette ou une fiche USDA existe pour chaque ingrédient.
 - Suggestions dédupliquées et classées par nombre d’ingrédients correspondants.
 - Détail des recettes, préparation, ingrédients et apports estimés via USDA.
 - Plan quotidien persistant, portions ajustables, ajout et retrait des repas.

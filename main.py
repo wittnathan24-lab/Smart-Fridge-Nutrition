@@ -75,7 +75,16 @@ async def read_root() -> dict[str, str]:
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 @app.get("/app", response_class=HTMLResponse, include_in_schema=False)
 async def web_app(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request=request, name="app.html")
+    return templates.TemplateResponse(
+        request=request,
+        name="app.html",
+        context={
+            "asset_version": max(
+                (BASE / "static" / name).stat().st_mtime_ns
+                for name in ["app.js", "styles.css", "tailwind.css"]
+            )
+        },
+    )
 
 
 @app.get("/health", tags=["System"])
@@ -307,3 +316,10 @@ async def generate_plan(
         "created": 3,
         "message": "Trois repas ajustés à votre cible énergétique. Les macros restent des repères à comparer.",
     }
+
+
+@app.get("/ingredients", tags=["Fridge"])
+def ingredient_catalogue():
+    from services.ingredient_catalogue import CATALOGUE
+
+    return CATALOGUE

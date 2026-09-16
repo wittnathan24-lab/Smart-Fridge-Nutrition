@@ -722,3 +722,34 @@ button:disabled {
   padding: 0;
   margin: 0;
 }
+.ingredient-picker {
+  position: relative;
+  min-width: 0;
+}
+.ingredient-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 5px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #18221f22;
+}
+.ingredient-options [role="option"] {
+  padding: 11px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+}
+.ingredient-options [role="option"]:hover,
+.ingredient-options [aria-selected="true"] {
+  background: #e9f1df;
+  color: var(--deep-green);
+}
