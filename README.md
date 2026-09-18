@@ -2,7 +2,7 @@
 
 Une application fullstack pour partir des ingrédients disponibles, explorer des recettes et composer une journée de repas avec un suivi énergétique et des macronutriments.
 
-**FastAPI · Pydantic · SQLite · JWT · httpx/asyncio · Jinja2 · Tailwind CSS**
+**FastAPI · Supabase Auth & Postgres · Pydantic · httpx/asyncio · Jinja2 · Tailwind CSS**
 
 ## Essayer en deux minutes
 
@@ -16,7 +16,9 @@ Copy-Item .env.example .env
 python -m uvicorn main:app --reload
 ```
 
-Ouvrir **http://127.0.0.1:8000**, puis **Explorer la démo**. Aucune clé API n’est nécessaire pour cette démonstration. Chaque visiteur reçoit un espace distinct avec un profil fictif, quatre ingrédients et trois recettes illustratives. Les données sont conservées dans SQLite.
+Ouvrir **http://127.0.0.1:8000**, puis **Explorer la démo**. Aucune clé API n’est nécessaire pour cette démonstration. Chaque visiteur reçoit un espace distinct avec un profil fictif, quatre ingrédients et trois recettes illustratives. Sans variables Supabase, les données restent dans SQLite local pour faciliter le développement.
+
+Pour activer la base cloud, suivre le [guide Supabase](docs/SUPABASE.md), renseigner `SUPABASE_URL` et `SUPABASE_ANON_KEY` dans `.env`, puis redémarrer l’application. Supabase Auth gère alors l’inscription, la connexion, les sessions et les accès Postgres.
 
 Pour un compte personnel, utiliser **Se connecter → Créer mon compte**. Les recettes sont alors recherchées sur TheMealDB. Renseigner `USDA_API_KEY` dans `.env` pour obtenir leurs estimations nutritionnelles.
 
@@ -27,7 +29,7 @@ Pour un compte personnel, utiliser **Se connecter → Créer mon compte**. Les r
 
 ## Fonctionnalités livrées
 
-- Inscription et connexion, mots de passe hachés avec scrypt, JWT signé et limité à deux heures.
+- Inscription et connexion via Supabase Auth ; sessions renouvelables et contrôle des accès Postgres avec RLS.
 - Profil corporel persistant, calcul Mifflin–St Jeor, dépense énergétique et cible selon l’objectif.
 - Frigo privé : ajout, modification de quantité et suppression.
 - Autocomplétion locale des ingrédients avec recherche sans accents, suggestions pour les petites fautes, navigation clavier et noms canoniques validés côté serveur. Le catalogue partage le dictionnaire de traduction des intégrations ; il ne garantit pas qu’une recette ou une fiche USDA existe pour chaque ingrédient.
@@ -45,6 +47,8 @@ Pour un compte personnel, utiliser **Se connecter → Créer mon compte**. Les r
 | `USDA_API_KEY`       | Clé FoodData Central ; facultative pour démarrer et pour la démo                                  |
 | `JWT_SECRET`         | Secret aléatoire d’au moins 32 caractères ; requis pour conserver les sessions entre redémarrages |
 | `DATABASE_PATH`      | Chemin SQLite, `smart_fridge.db` par défaut                                                       |
+| `SUPABASE_URL`       | URL du projet Supabase ; active Supabase Auth et Postgres avec la clé ci-dessous                  |
+| `SUPABASE_ANON_KEY`  | Clé anon/publishable Supabase, utilisée avec le jeton de l’utilisateur pour appliquer RLS         |
 | `THEMEALDB_BASE_URL` | URL du service de recettes, configurable dans les settings                                        |
 | `USDA_BASE_URL`      | URL du service nutritionnel, configurable dans les settings                                       |
 
@@ -59,11 +63,11 @@ Navigateur : Jinja2 + JavaScript + Tailwind compilé
 FastAPI ─── auth.py : comptes et authentification
    │       personal.py : profils et journal quotidien
    │       models.py / schemas.py : validation et calculs
-   │       database.py : SQLite et requêtes paramétrées
+   │       database.py : Supabase Auth/Postgres avec RLS, SQLite local de secours
    └────── services/ : TheMealDB → normalisation → USDA → agrégation
 ```
 
-Les requêtes SQL filtrent systématiquement les données privées sur l’utilisateur authentifié. Les tests vérifient qu’un second compte ne peut ni lire ni modifier les données du premier. Les appels aux fournisseurs passent par un client HTTP partagé et les recherches indépendantes s’exécutent avec `asyncio.gather`.
+Supabase Auth émet les jetons utilisateur. La couche de données transmet ce jeton à Postgres, afin que les politiques RLS filtrent chaque requête dans la base. Les tests vérifient également qu’un second compte ne peut ni lire ni modifier les données du premier. Les appels aux fournisseurs passent par un client HTTP partagé et les recherches indépendantes s’exécutent avec `asyncio.gather`.
 
 ## Calculs et limites assumées
 
@@ -105,4 +109,4 @@ Consulter [le scénario de démonstration](docs/PORTFOLIO.md) et [les décisions
 
 Cette version est destinée à une démonstration locale. Avant exposition publique : HTTPS, secret stable, sauvegardes SQLite, limitation de requêtes au proxy, politique de conservation des comptes de démo et procédure de suppression des comptes. Le limiteur fourni couvre 20 tentatives d’authentification par minute et par adresse dans un seul processus. Il n’est pas distribué. Les JWT sont stockés dans la session de l’onglet ; se déconnecter les retire du navigateur mais ne révoque pas une copie déjà émise.
 
-La vérification d’e-mail, la réinitialisation des mots de passe, PostgreSQL et la gestion des allergies ne sont pas implémentés. Aucun déploiement public n’est effectué.
+La réinitialisation des mots de passe, la gestion des allergies et le déploiement public restent à mettre en place.

@@ -9,12 +9,41 @@ const esc = (value) =>
   );
 let session = null,
   needs = null;
+let refreshRequest = null;
 try {
   session = JSON.parse(sessionStorage.getItem("sf-session"));
 } catch {
   sessionStorage.removeItem("sf-session");
 }
-const api = async (url, options = {}) => {
+const clearSession = async () => {
+  session = null;
+  sessionStorage.removeItem("sf-session");
+  updateAccount();
+  showNeeds(null);
+  renderInventory([]);
+  renderRecipes([]);
+  $("#profile-form").reset();
+  await loadPlan();
+};
+const refreshSession = async () => {
+  if (!session?.refresh_token) throw Error("Votre session a expiré.");
+  refreshRequest ??= fetch("/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: session.refresh_token }),
+  })
+    .then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw Error(data.detail || "Votre session a expiré.");
+      session = { ...session, ...data };
+      sessionStorage.setItem("sf-session", JSON.stringify(session));
+    })
+    .finally(() => {
+      refreshRequest = null;
+    });
+  return refreshRequest;
+};
+const api = async (url, options = {}, canRefresh = true) => {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -29,15 +58,20 @@ const api = async (url, options = {}) => {
     throw Error("Le serveur a renvoyé une réponse inattendue.");
   }
   if (!response.ok) {
-    if (response.status === 401 && session) {
-      session = null;
-      sessionStorage.removeItem("sf-session");
-      updateAccount();
-      showNeeds(null);
-      renderInventory([]);
-      renderRecipes([]);
-      $("#profile-form").reset();
-      await loadPlan();
+    if (
+      response.status === 401 &&
+      session &&
+      canRefresh &&
+      session.refresh_token
+    ) {
+      try {
+        await refreshSession();
+        return api(url, options, false);
+      } catch {
+        await clearSession();
+      }
+    } else if (response.status === 401 && session) {
+      await clearSession();
     }
     throw Error(
       typeof data.detail === "string"
@@ -179,6 +213,14 @@ $("#auth-form").onsubmit = (e) => {
       method: "POST",
       body: JSON.stringify(Object.fromEntries(new FormData(e.target))),
     });
+    if (session.confirmation_required) {
+      message(
+        "#auth-feedback",
+        "Compte créé. Vérifiez votre e-mail puis connectez-vous.",
+      );
+      session = null;
+      return;
+    }
     sessionStorage.setItem("sf-session", JSON.stringify(session));
     e.target.reset();
     $("#auth-dialog").close();

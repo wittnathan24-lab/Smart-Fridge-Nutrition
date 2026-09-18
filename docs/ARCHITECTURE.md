@@ -4,15 +4,15 @@
 
 Le dépôt possédait FastAPI, les intégrations USDA/TheMealDB et une première interface. Le premier commit de cette intervention sauvegarde ces modifications préexistantes. Les étapes suivantes complètent ce socle sans remplacer la stack.
 
-## SQLite et séparation des comptes
+## Supabase et séparation des comptes
 
-Trois tables : `users`, `items`, `meals`. Les connexions activent les clés étrangères et les écritures utilisent des paramètres SQL. Le profil est stocké sous forme JSON validée par Pydantic. La génération de journée utilise une transaction immédiate : une journée déjà remplie n’est pas remplacée.
+Supabase Auth est la source des comptes. Trois tables Postgres complètent le domaine : `profiles`, `fridge_items`, `planned_meals`. Elles référencent `auth.users`, sont protégées par Row Level Security et ne laissent chaque utilisateur agir que sur ses propres lignes. Le profil est stocké sous forme JSON validée par Pydantic. La génération de journée est une fonction Postgres transactionnelle : une journée déjà remplie n’est pas remplacée.
 
-La base est créée au démarrage. Il n’existe pas encore de système de migrations pour des changements de schéma futurs. SQLite simplifie la démo ; PostgreSQL et des migrations seraient les prochaines étapes pour un service partagé à plus grande échelle.
+Le schéma est versionné dans `supabase/migrations/`. SQLite demeure un secours local tant que Supabase n’est pas configuré, ce qui permet aux tests et à la démo de rester autonomes. Les comptes SQLite ne sont pas migrés automatiquement, car leurs mots de passe ne peuvent pas être transférés à Supabase Auth.
 
 ## Authentification
 
-JWT HS256 via PyJWT, algorithme explicitement imposé, expiration de deux heures, vérification de l’existence du compte à chaque requête protégée. Les mots de passe utilisent scrypt avec un sel unique. Les identifiants invalides ont un message commun. Une protection locale limite les tentatives d’authentification et la création de démos.
+Avec Supabase configuré, Supabase Auth gère les mots de passe, la signature, l’expiration et le renouvellement des sessions. L’API vérifie le jeton auprès d’Auth et le transmet à PostgREST pour que les règles RLS soient actives. Le précédent flux PyJWT/scrypt est conservé uniquement pour le mode local sans Supabase. Une protection locale limite les tentatives d’authentification et la création de démos.
 
 Le choix PyJWT remplit le besoin JWT du brief avec une bibliothèque dédiée ; il remplace la suggestion python-jose. Le navigateur envoie le jeton dans Authorization. La session de l’onglet permet le rechargement sans conserver le jeton entre sessions de navigateur.
 

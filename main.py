@@ -7,13 +7,23 @@ from pathlib import Path
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from postgrest.exceptions import APIError
 
 from auth import current_user
 from auth import router as auth_router
-from database import connection, initialize
+from database import (
+    DatabaseError,
+    DuplicatePlanError,
+    create_generated_plan,
+    create_item,
+    delete_item,
+    initialize,
+    list_items,
+    update_item,
+)
 from demo import RECIPES
 from demo import router as demo_router
 from middleware import account_rate_limit
@@ -48,6 +58,17 @@ app.include_router(personal_router)
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+
+
+@app.exception_handler(DatabaseError)
+@app.exception_handler(APIError)
+async def database_unavailable(_: Request, __: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={
+            "detail": "La base Supabase est momentanément indisponible. Réessayez dans un instant."
+        },
+    )
 
 
 app.add_middleware(
@@ -101,43 +122,25 @@ async def calculate_profile_nutrition(
 
 @app.post("/fridge/items", status_code=201, tags=["Fridge"])
 def add_fridge_item(item: FridgeItem, user=Depends(current_user)):
-    with connection() as db:
-        cursor = db.execute(
-            "INSERT INTO items(user_id,name,quantity_g) VALUES (?,?,?)",
-            (user["id"], item.name, item.quantity_g),
-        )
-        return {"id": cursor.lastrowid, **item.model_dump()}
+    return create_item(user, item.name, item.quantity_g)
 
 
 @app.get("/fridge/items", tags=["Fridge"])
 def list_fridge_items(user=Depends(current_user)):
-    with connection() as db:
-        return [
-            dict(r)
-            for r in db.execute(
-                "SELECT id,name,quantity_g FROM items WHERE user_id=? ORDER BY id", (user["id"],)
-            )
-        ]
+    return list_items(user)
 
 
 @app.put("/fridge/items/{item_id}", tags=["Fridge"])
 def update_fridge_item(item_id: int, item: FridgeItem, user=Depends(current_user)):
-    with connection() as db:
-        if not db.execute(
-            "UPDATE items SET name=?,quantity_g=? WHERE id=? AND user_id=?",
-            (item.name, item.quantity_g, item_id, user["id"]),
-        ).rowcount:
-            raise HTTPException(404, "Ingrédient introuvable.")
+    if not update_item(user, item_id, item.name, item.quantity_g):
+        raise HTTPException(404, "Ingrédient introuvable.")
     return {"id": item_id, **item.model_dump()}
 
 
 @app.delete("/fridge/items/{item_id}", tags=["Fridge"])
 def delete_fridge_item(item_id: int, user=Depends(current_user)):
-    with connection() as db:
-        if not db.execute(
-            "DELETE FROM items WHERE id=? AND user_id=?", (item_id, user["id"])
-        ).rowcount:
-            raise HTTPException(404, "Ingrédient introuvable.")
+    if not delete_item(user, item_id):
+        raise HTTPException(404, "Ingrédient introuvable.")
     return {"deleted": True}
 
 
@@ -291,27 +294,12 @@ async def generate_plan(
             **{k: round(recipe[k] * scale, 2) for k in ["calories", "protein", "carbs", "fat"]},
         )
         meals.append(meal)
-    with connection() as db:
-        db.execute("BEGIN IMMEDIATE")
-        if db.execute(
-            "SELECT 1 FROM meals WHERE user_id=? AND day=?", (user["id"], str(day))
-        ).fetchone():
-            raise HTTPException(
-                409, "Cette journée contient déjà des repas. Choisissez une journée vide."
-            )
-        for meal in meals:
-            db.execute(
-                "INSERT INTO meals(user_id,day,name,calories,protein,carbs,fat) VALUES (?,?,?,?,?,?,?)",
-                (
-                    user["id"],
-                    str(day),
-                    meal.name,
-                    meal.calories,
-                    meal.protein,
-                    meal.carbs,
-                    meal.fat,
-                ),
-            )
+    try:
+        create_generated_plan(user, day, [meal.model_dump() for meal in meals])
+    except DuplicatePlanError:
+        raise HTTPException(
+            409, "Cette journée contient déjà des repas. Choisissez une journée vide."
+        ) from None
     return {
         "created": 3,
         "message": "Trois repas ajustés à votre cible énergétique. Les macros restent des repères à comparer.",

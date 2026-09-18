@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 import jwt
@@ -378,3 +379,38 @@ def test_catalogue_is_public_and_consistent(client):
         for alias in entry["aliases"]:
             assert canonical_name(alias) == entry["name"]
         assert to_english(entry["name"])
+
+
+def test_supabase_client_forwards_the_user_session(monkeypatch):
+    import database
+    from config import get_settings
+
+    class FakePostgrest:
+        def __init__(self):
+            self.access_token = None
+
+        def auth(self, access_token):
+            self.access_token = access_token
+
+    class FakeClient:
+        def __init__(self):
+            self.postgrest = FakePostgrest()
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "supabase_url", "https://example.supabase.co")
+    monkeypatch.setattr(settings, "supabase_anon_key", "publishable-key")
+    client = FakeClient()
+    monkeypatch.setattr(database, "create_client", lambda *args, **kwargs: client)
+
+    assert database.supabase_client("user-session") is client
+    assert client.postgrest.access_token == "user-session"
+
+
+def test_supabase_migration_enables_rls_and_plan_transaction():
+    migration = (
+        Path(__file__).parents[1] / "supabase" / "migrations" / "202609180001_smart_fridge.sql"
+    ).read_text(encoding="utf-8")
+    for table in ["profiles", "fridge_items", "planned_meals"]:
+        assert f"alter table public.{table} enable row level security" in migration
+    assert "auth.uid()" in migration
+    assert "create_meal_plan" in migration
