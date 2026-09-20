@@ -13,7 +13,7 @@ L'application utilise Supabase Auth pour les comptes et Postgres pour les profil
    SUPABASE_ANON_KEY=votre-cle-anon-ou-publishable
    ```
 
-4. Dans **Authentication > Providers > Email**, activer Email. Pour un parcours local immédiat, désactiver temporairement **Confirm email**. Si la confirmation reste activée, l'inscription invite l'utilisateur à confirmer son adresse avant la connexion.
+4. Dans **Authentication > Sign In / Providers**, garder Email et **Confirm email** activés. Pour le bouton Démo, activer **Allow anonymous sign-ins** : chaque visiteur obtient son propre compte invité protégé par RLS, sans adresse fictive ni désactivation de la confirmation des comptes classiques.
 5. Redémarrer FastAPI puis créer un compte dans l'application.
 
 La clé `service_role` ne doit jamais être ajoutée au projet : l'application utilise uniquement la clé anon/publishable et le jeton de l'utilisateur connecté, afin que les règles RLS restent effectives.
@@ -31,3 +31,11 @@ Le schéma crée les tables `profiles`, `fridge_items`, `planned_meals`, leurs i
 ## Données existantes
 
 La base SQLite locale reste active tant que les deux variables Supabase sont absentes. Il n'y a pas de migration automatique des comptes locaux, car les mots de passe ne peuvent pas être transférés vers Supabase Auth. Les utilisateurs créent donc un nouveau compte après l'activation de Supabase.
+
+## Vérification réelle
+
+La commande `python -m scripts.check_supabase` crée deux comptes invités dans le projet configuré. Elle vérifie les sessions, leur renouvellement, le profil, les opérations sur le frigo, le plan de repas et le refus d'accès aux données d'un autre utilisateur. Elle conserve les comptes invités et leurs ingrédients initiaux pour inspection ; elle supprime uniquement l'ingrédient et le repas ajoutés par son scénario. Elle n'affiche aucune clé ni aucun jeton.
+
+Les tests ordinaires (`python -m pytest`) restent isolés sur SQLite, même lorsque `.env` pointe vers Supabase. Une configuration Supabase partielle provoque une erreur explicite au lieu de basculer silencieusement en local.
+
+Pour une publication publique, configurer la protection CAPTCHA des sessions invitées et prévoir leur nettoyage périodique. Une session invitée perdue ne peut pas être récupérée par e-mail.
