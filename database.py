@@ -23,6 +23,10 @@ class DuplicatePlanError(DatabaseError):
 
 def using_supabase() -> bool:
     settings = get_settings()
+    if bool(settings.supabase_url) != bool(settings.supabase_anon_key):
+        raise DatabaseError(
+            "Configuration Supabase incomplète : renseignez SUPABASE_URL et SUPABASE_ANON_KEY."
+        )
     return bool(settings.supabase_url and settings.supabase_anon_key)
 
 

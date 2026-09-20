@@ -19,8 +19,12 @@ from services.usda import search_food
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
+    from config import get_settings
     from middleware import attempts
 
+    # Local tests must never create accounts or records in the configured cloud project.
+    monkeypatch.setattr(get_settings(), "supabase_url", "")
+    monkeypatch.setattr(get_settings(), "supabase_anon_key", "")
     attempts.clear()
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "test.db"))
     with TestClient(app) as client:
@@ -414,3 +418,14 @@ def test_supabase_migration_enables_rls_and_plan_transaction():
         assert f"alter table public.{table} enable row level security" in migration
     assert "auth.uid()" in migration
     assert "create_meal_plan" in migration
+
+
+@pytest.mark.parametrize("url,key", [("https://example.supabase.co", ""), ("", "key")])
+def test_partial_supabase_configuration_never_falls_back_to_sqlite(monkeypatch, url, key):
+    from config import get_settings
+    from database import DatabaseError, using_supabase
+
+    monkeypatch.setattr(get_settings(), "supabase_url", url)
+    monkeypatch.setattr(get_settings(), "supabase_anon_key", key)
+    with pytest.raises(DatabaseError, match="Configuration Supabase incomplète"):
+        using_supabase()
