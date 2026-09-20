@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import date
 from typing import Any
 
-from supabase.lib.client_options import ClientOptions
+from supabase.lib.client_options import SyncClientOptions
 
 from config import get_settings
 from supabase import Client, create_client
@@ -38,7 +38,7 @@ def supabase_client(access_token: str | None = None) -> Client:
     client = create_client(
         settings.supabase_url,
         settings.supabase_anon_key,
-        options=ClientOptions(auto_refresh_token=False, persist_session=False),
+        options=SyncClientOptions(auto_refresh_token=False, persist_session=False),
     )
     if access_token:
         client.postgrest.auth(access_token)

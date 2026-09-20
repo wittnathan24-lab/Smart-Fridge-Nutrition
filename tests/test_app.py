@@ -410,6 +410,18 @@ def test_supabase_client_forwards_the_user_session(monkeypatch):
     assert client.postgrest.access_token == "user-session"
 
 
+def test_real_supabase_sdk_client_initialization(monkeypatch):
+    from config import get_settings
+    from database import supabase_client
+
+    monkeypatch.setattr(get_settings(), "supabase_url", "https://example.supabase.co")
+    monkeypatch.setattr(get_settings(), "supabase_anon_key", "publishable-key")
+    client = supabase_client("user-session")
+    assert client.options.persist_session is False
+    assert client.options.auto_refresh_token is False
+    assert client.postgrest.headers["Authorization"] == "Bearer user-session"
+
+
 def test_supabase_migration_enables_rls_and_plan_transaction():
     migration = (
         Path(__file__).parents[1] / "supabase" / "migrations" / "202609180001_smart_fridge.sql"

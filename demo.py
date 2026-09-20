@@ -4,6 +4,7 @@ import json
 import secrets
 
 from fastapi import APIRouter, HTTPException
+from supabase_auth.errors import AuthApiError
 
 from auth import password_hash, session_token
 from database import create_item, save_profile, supabase_client, using_supabase
@@ -71,11 +72,17 @@ def demo():
     }
     password = secrets.token_urlsafe(32)
     if using_supabase():
-        response = supabase_client().auth.sign_up({"email": email, "password": password})
+        try:
+            response = supabase_client().auth.sign_in_anonymously()
+        except AuthApiError as exc:
+            raise HTTPException(
+                503,
+                "La démonstration est momentanément indisponible. Connectez-vous à votre compte.",
+            ) from exc
         if response.session is None:
             raise HTTPException(
                 503,
-                "La démo Supabase exige de désactiver Confirm email dans Authentication > Providers > Email.",
+                "La session de démonstration n'a pas pu être créée.",
             )
         payload = session_token(response.session)
         user = {

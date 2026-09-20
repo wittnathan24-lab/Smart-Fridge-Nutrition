@@ -64,7 +64,8 @@ def session_token(session: Any) -> dict[str, Any]:
         "refresh_token": session.refresh_token,
         "expires_in": session.expires_in,
         "token_type": "bearer",
-        "email": session.user.email,
+        "email": session.user.email or "Visiteur",
+        "demo": bool(session.user.is_anonymous),
     }
 
 
@@ -78,11 +79,11 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)) ->
     if using_supabase():
         try:
             auth_user = supabase_client().auth.get_user(credentials.credentials).user
-            if auth_user is None or auth_user.email is None:
+            if auth_user is None or (not auth_user.email and not auth_user.is_anonymous):
                 raise ValueError
             return {
                 "id": auth_user.id,
-                "email": auth_user.email,
+                "email": auth_user.email or "Visiteur",
                 "access_token": credentials.credentials,
             }
         except (AuthApiError, ValueError, TypeError):
