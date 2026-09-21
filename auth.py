@@ -27,7 +27,52 @@ if len(SECRET) < 32:
 
 class Credentials(BaseModel):
     email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class Registration(Credentials):
     password: str = Field(min_length=10, max_length=128)
+
+
+class ConfirmationRequest(BaseModel):
+    email: EmailStr
+
+
+def auth_error(exc: AuthApiError) -> HTTPException:
+    messages = {
+        "email_not_confirmed": (
+            403,
+            "Confirmez votre adresse avec le lien reçu par e-mail avant de vous connecter. Vérifiez aussi les indésirables.",
+        ),
+        "invalid_credentials": (
+            401,
+            "Adresse ou mot de passe incorrect. Les anciens comptes locaux doivent être recréés sur Supabase.",
+        ),
+        "over_email_send_rate_limit": (
+            429,
+            "La limite d’envoi d’e-mails est atteinte. Patientez avant de demander un nouveau lien.",
+        ),
+        "over_request_rate_limit": (429, "Trop de tentatives. Patientez avant de réessayer."),
+        "email_address_not_authorized": (
+            503,
+            "L’envoi de confirmations à cette adresse n’est pas encore configuré. Contactez le responsable de l’application.",
+        ),
+        "email_address_invalid": (
+            422,
+            "Cette adresse e-mail n’est pas acceptée. Vérifiez son orthographe.",
+        ),
+        "weak_password": (422, "Choisissez un mot de passe plus robuste d’au moins 10 caractères."),
+        "user_already_exists": (409, "Un compte utilise déjà cette adresse. Connectez-vous."),
+        "signup_disabled": (403, "Les inscriptions sont momentanément désactivées."),
+    }
+    status, detail = messages.get(
+        exc.code,
+        (
+            502 if exc.status >= 500 else exc.status,
+            "Authentification impossible. Réessayez dans un instant.",
+        ),
+    )
+    return HTTPException(status, detail)
 
 
 class RefreshRequest(BaseModel):
@@ -115,7 +160,7 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)) ->
 
 
 @router.post("/register", status_code=201)
-def register(data: Credentials):
+def register(data: Registration):
     if using_supabase():
         try:
             response = supabase_client().auth.sign_up(
@@ -128,12 +173,7 @@ def register(data: Credentials):
                 }
             return session_token(response.session)
         except AuthApiError as exc:
-            detail = (
-                "Un compte utilise déjà cette adresse."
-                if exc.status == 422
-                else "Inscription impossible."
-            )
-            raise HTTPException(exc.status if exc.status < 500 else 502, detail) from exc
+            raise auth_error(exc) from exc
     try:
         with connection() as db:
             cursor = db.execute(
@@ -154,9 +194,7 @@ def login(data: Credentials):
             )
             return session_token(response.session)
         except AuthApiError as exc:
-            raise HTTPException(
-                401, "Adresse, mot de passe ou confirmation d’e-mail incorrect."
-            ) from exc
+            raise auth_error(exc) from exc
     with connection() as db:
         user = db.execute(
             "SELECT * FROM users WHERE email=?", (str(data.email).lower(),)
@@ -179,6 +217,19 @@ def refresh_session(data: RefreshRequest):
         return session_token(response.session)
     except AuthApiError as exc:
         raise HTTPException(401, "Votre session a expiré. Connectez-vous à nouveau.") from exc
+
+
+@router.post("/resend-confirmation")
+def resend_confirmation(data: ConfirmationRequest):
+    if not using_supabase():
+        raise HTTPException(400, "La confirmation par e-mail n’est pas requise en mode local.")
+    try:
+        supabase_client().auth.resend({"type": "signup", "email": str(data.email).lower()})
+    except AuthApiError as exc:
+        raise auth_error(exc) from exc
+    return {
+        "message": "Si cette adresse attend une confirmation, un nouveau lien a été envoyé. Vérifiez aussi les indésirables."
+    }
 
 
 @router.get("/me")

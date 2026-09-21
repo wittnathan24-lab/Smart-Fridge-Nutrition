@@ -16,6 +16,12 @@ L'application utilise Supabase Auth pour les comptes et Postgres pour les profil
 4. Dans **Authentication > Sign In / Providers**, garder Email et **Confirm email** activés. Pour le bouton Démo, activer **Allow anonymous sign-ins** : chaque visiteur obtient son propre compte invité protégé par RLS, sans adresse fictive ni désactivation de la confirmation des comptes classiques.
 5. Redémarrer FastAPI puis créer un compte dans l'application.
 
+6. Dans **Authentication > URL Configuration**, régler **Site URL** sur l'adresse réelle de l'application : `http://127.0.0.1:8000` pour la démonstration locale. Le réglage par défaut `http://localhost:3000` ne correspond pas à ce projet. Après publication, remplacer cette valeur par l'adresse publique du site.
+
+Le formulaire permet de renvoyer un lien de confirmation sans ressaisir le mot de passe. Le retour du lien rétablit la session et retire les jetons de la barre d'adresse. Les erreurs distinguent une adresse non confirmée, des identifiants incorrects et une limite d'envoi atteinte. Le minimum de 10 caractères s'applique à l'inscription, pas à la connexion à un compte existant.
+
+Sans SMTP personnalisé, Supabase limite les destinataires et le nombre d'e-mails de confirmation. Configurer un fournisseur SMTP pour ouvrir les inscriptions au public : https://supabase.com/docs/guides/auth/auth-smtp. Ne pas confondre un échec de livraison avec une base de données indisponible.
+
 La clé `service_role` ne doit jamais être ajoutée au projet : l'application utilise uniquement la clé anon/publishable et le jeton de l'utilisateur connecté, afin que les règles RLS restent effectives.
 
 ## Déploiement du schéma avec la CLI

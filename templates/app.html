@@ -295,17 +295,18 @@
           >Mot de passe<input
             type="password"
             name="password"
-            minlength="10"
+            minlength="1"
             maxlength="128"
             autocomplete="current-password"
             required /></label
-        ><small class="full-width">10 caractères minimum.</small
+        ><small class="full-width">Pour créer un compte : 10 caractères minimum, puis confirmation par e-mail.</small
         ><button class="button button-dark" name="action" value="login">
           Connexion</button
         ><button class="button button-accent" name="action" value="register">
           Créer mon compte
         </button>
         <p id="auth-feedback" class="feedback full-width" role="alert"></p>
+        <button id="resend-confirmation" class="text-button full-width" type="button">Renvoyer le lien de confirmation</button>
       </form>
       <button class="text-button close-dialog" type="button">Fermer</button>
     </dialog>

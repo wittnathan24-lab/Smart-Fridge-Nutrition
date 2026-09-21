@@ -60,6 +60,7 @@ const api = async (url, options = {}, canRefresh = true) => {
   if (!response.ok) {
     if (
       response.status === 401 &&
+      !url.startsWith("/auth/") &&
       session &&
       canRefresh &&
       session.refresh_token
@@ -70,7 +71,7 @@ const api = async (url, options = {}, canRefresh = true) => {
       } catch {
         await clearSession();
       }
-    } else if (response.status === 401 && session) {
+    } else if (response.status === 401 && session && !url.startsWith("/auth/")) {
       await clearSession();
     }
     throw Error(
@@ -209,24 +210,38 @@ document
 $("#auth-form").onsubmit = (e) => {
   e.preventDefault();
   action(e.submitter, "#auth-feedback", async () => {
-    session = await api("/auth/" + e.submitter.value, {
+    const credentials = Object.fromEntries(new FormData(e.target));
+    if (e.submitter.value === "register" && credentials.password.length < 10) {
+      throw Error("Pour créer un compte, choisissez un mot de passe d’au moins 10 caractères.");
+    }
+    const result = await api("/auth/" + e.submitter.value, {
       method: "POST",
-      body: JSON.stringify(Object.fromEntries(new FormData(e.target))),
+      body: JSON.stringify(credentials),
     });
-    if (session.confirmation_required) {
+    if (result.confirmation_required) {
       message(
         "#auth-feedback",
-        "Compte créé. Vérifiez votre e-mail puis connectez-vous.",
+        "Vérifiez votre boîte mail et les indésirables, puis cliquez sur le lien de confirmation. Si vous avez déjà un compte confirmé, utilisez Connexion.",
       );
-      session = null;
       return;
     }
+    session = result;
     sessionStorage.setItem("sf-session", JSON.stringify(session));
     e.target.reset();
     $("#auth-dialog").close();
     await hydrate();
   });
 };
+$("#resend-confirmation").onclick = (e) =>
+  action(e.currentTarget, "#auth-feedback", async () => {
+    const email = $("#auth-form").elements.namedItem("email");
+    if (!email.reportValidity()) return;
+    const result = await api("/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email: email.value }),
+    });
+    message("#auth-feedback", result.message);
+  });
 $("#demo-button").onclick = (e) =>
   action(e.target, "#account-feedback", async () => {
     session = await api("/auth/demo", { method: "POST" });
@@ -403,7 +418,26 @@ $("#recipe-list").onclick = async (e) => {
     detail.textContent = error.message;
   }
 };
-hydrate().catch((e) => message("#account-feedback", e.message, true));
+async function initializeAccount() {
+  const confirmation = new URLSearchParams(location.hash.slice(1));
+  if (confirmation.has("access_token") || confirmation.has("error")) {
+    // Remove credentials from the address bar before any asynchronous work.
+    history.replaceState(null, "", location.pathname + location.search);
+    if (confirmation.has("error")) {
+      $("#auth-dialog").showModal();
+      message("#auth-feedback", "Ce lien a expiré ou a déjà été utilisé. Connectez-vous si votre adresse est confirmée, sinon demandez un nouveau lien.", true);
+    } else if (confirmation.get("refresh_token")) {
+      const result = await api("/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: confirmation.get("refresh_token") }),
+      }, false);
+      session = result;
+      sessionStorage.setItem("sf-session", JSON.stringify(session));
+    }
+  }
+  await hydrate();
+}
+initializeAccount().catch((e) => message("#account-feedback", e.message, true));
 
 $("#generate-plan").onclick = (e) => {
   if (!requireAccount()) return;
