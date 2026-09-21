@@ -2,9 +2,9 @@
 
 Projet : `tocsvignvijwxdghurzf` (région Europe, Irlande).
 
-Le schéma `202609180001_smart_fridge.sql` a été appliqué dans SQL Editor dans une transaction. Les tables `profiles`, `fridge_items` et `planned_meals`, leurs politiques RLS, le déclencheur de profil et la fonction `create_meal_plan` sont en place. L'application locale utilise l'URL et la clé publique du projet depuis `.env`, exclu de Git. Aucune clé administrateur n'est utilisée.
+Le schéma `202609180001_smart_fridge.sql` a été appliqué dans SQL Editor dans une transaction. Les tables `profiles`, `fridge_items` et `planned_meals`, leurs politiques RLS, le déclencheur de profil et la fonction `create_meal_plan` sont en place. L'application locale utilise l'URL et la clé publique du projet depuis `.env`, exclu de Git. La clé serveur Supabase est utilisée uniquement côté serveur pour créer les comptes confirmés.
 
-Les sessions invitées sont activées avec l'accord du propriétaire. La confirmation par e-mail reste activée pour les inscriptions classiques.
+Les sessions invitées sont activées avec l'accord du propriétaire. Les inscriptions classiques sont confirmées directement côté serveur, sans envoi d'e-mail.
 
 ## Contrôles réussis
 
@@ -17,4 +17,4 @@ Les sessions invitées sont activées avec l'accord du propriétaire. La confirm
 
 Lancer `python -m uvicorn main:app --host 127.0.0.1 --port 8000`, ouvrir `http://127.0.0.1:8000`, puis choisir **Explorer la démo**. Dans Supabase, **Table Editor > fridge_items** permet de montrer les ingrédients persistés et leur `user_id`.
 
-Les comptes de test invités et leurs ingrédients de départ restent dans la base pour inspection. Le site fonctionne localement avec une base distante ; aucun hébergement public du serveur n'a été réalisé dans cette étape. Le parcours d'inscription avec réception d'un e-mail n'a pas été testé avec une adresse personnelle.
+Les comptes de test invités et leurs ingrédients de départ restent dans la base pour inspection. Le site fonctionne localement avec une base distante ; aucun hébergement public du serveur n'a été réalisé dans cette étape. Le parcours d'inscription sans e-mail de confirmation doit être vérifié avec une adresse personnelle sur le projet Supabase cible.

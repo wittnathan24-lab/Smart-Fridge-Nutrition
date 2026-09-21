@@ -218,13 +218,6 @@ $("#auth-form").onsubmit = (e) => {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-    if (result.confirmation_required) {
-      message(
-        "#auth-feedback",
-        "Vérifiez votre boîte mail et les indésirables, puis cliquez sur le lien de confirmation. Si vous avez déjà un compte confirmé, utilisez Connexion.",
-      );
-      return;
-    }
     session = result;
     sessionStorage.setItem("sf-session", JSON.stringify(session));
     e.target.reset();
@@ -232,16 +225,6 @@ $("#auth-form").onsubmit = (e) => {
     await hydrate();
   });
 };
-$("#resend-confirmation").onclick = (e) =>
-  action(e.currentTarget, "#auth-feedback", async () => {
-    const email = $("#auth-form").elements.namedItem("email");
-    if (!email.reportValidity()) return;
-    const result = await api("/auth/resend-confirmation", {
-      method: "POST",
-      body: JSON.stringify({ email: email.value }),
-    });
-    message("#auth-feedback", result.message);
-  });
 $("#demo-button").onclick = (e) =>
   action(e.target, "#account-feedback", async () => {
     session = await api("/auth/demo", { method: "POST" });
@@ -419,22 +402,6 @@ $("#recipe-list").onclick = async (e) => {
   }
 };
 async function initializeAccount() {
-  const confirmation = new URLSearchParams(location.hash.slice(1));
-  if (confirmation.has("access_token") || confirmation.has("error")) {
-    // Remove credentials from the address bar before any asynchronous work.
-    history.replaceState(null, "", location.pathname + location.search);
-    if (confirmation.has("error")) {
-      $("#auth-dialog").showModal();
-      message("#auth-feedback", "Ce lien a expiré ou a déjà été utilisé. Connectez-vous si votre adresse est confirmée, sinon demandez un nouveau lien.", true);
-    } else if (confirmation.get("refresh_token")) {
-      const result = await api("/auth/refresh", {
-        method: "POST",
-        body: JSON.stringify({ refresh_token: confirmation.get("refresh_token") }),
-      }, false);
-      session = result;
-      sessionStorage.setItem("sf-session", JSON.stringify(session));
-    }
-  }
   await hydrate();
 }
 initializeAccount().catch((e) => message("#account-feedback", e.message, true));

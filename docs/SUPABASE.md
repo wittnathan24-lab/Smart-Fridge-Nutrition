@@ -13,14 +13,12 @@ L'application utilise Supabase Auth pour les comptes et Postgres pour les profil
    SUPABASE_ANON_KEY=votre-cle-anon-ou-publishable
    ```
 
-4. Dans **Authentication > Sign In / Providers**, garder Email et **Confirm email** activés. Le bouton Démo utilise désormais un compte permanent partagé ; il ne crée plus de compte invité.
+4. Dans **Authentication > Sign In / Providers**, activer Email. L'inscription serveur confirme directement les comptes et n'envoie pas d'e-mail. Le bouton Démo utilise désormais un compte permanent partagé ; il ne crée plus de compte invité.
 5. Redémarrer FastAPI puis créer un compte dans l'application.
 
 6. Dans **Authentication > URL Configuration**, régler **Site URL** sur l'adresse réelle de l'application : `http://127.0.0.1:8000` pour la démonstration locale. Le réglage par défaut `http://localhost:3000` ne correspond pas à ce projet. Après publication, remplacer cette valeur par l'adresse publique du site.
 
-Le formulaire permet de renvoyer un lien de confirmation sans ressaisir le mot de passe. Le retour du lien rétablit la session et retire les jetons de la barre d'adresse. Les erreurs distinguent une adresse non confirmée, des identifiants incorrects et une limite d'envoi atteinte. Le minimum de 10 caractères s'applique à l'inscription, pas à la connexion à un compte existant.
-
-Sans SMTP personnalisé, Supabase limite les destinataires et le nombre d'e-mails de confirmation. Configurer un fournisseur SMTP pour ouvrir les inscriptions au public : https://supabase.com/docs/guides/auth/auth-smtp. Ne pas confondre un échec de livraison avec une base de données indisponible.
+L'inscription crée le compte via l'API serveur Supabase avec `email_confirm: true`, puis ouvre immédiatement une session. Aucun SMTP n'est nécessaire pour créer un compte. Le minimum de 10 caractères s'applique à l'inscription, pas à la connexion à un compte existant.
 
 `SUPABASE_SECRET_KEY` est réservée au serveur, dans `.env` exclu de Git. Elle sert uniquement à vérifier les comptes existants avant inscription et à provisionner le compte démo. Les requêtes de profils, frigos et repas continuent d'utiliser la clé publique et le jeton de l'utilisateur pour maintenir RLS. Ne jamais transmettre la clé secrète au navigateur.
 
