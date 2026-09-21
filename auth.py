@@ -13,7 +13,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 from supabase_auth.errors import AuthApiError
 
-from database import connection, supabase_client, using_supabase
+from config import get_settings
+from database import connection, supabase_admin_client, supabase_client, using_supabase
 
 load_dotenv()
 
@@ -110,7 +111,7 @@ def session_token(session: Any) -> dict[str, Any]:
         "expires_in": session.expires_in,
         "token_type": "bearer",
         "email": session.user.email or "Visiteur",
-        "demo": bool(session.user.is_anonymous),
+        "demo": bool(session.user.is_anonymous) or session.user.id == get_settings().demo_user_id,
     }
 
 
@@ -130,6 +131,7 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)) ->
                 "id": auth_user.id,
                 "email": auth_user.email or "Visiteur",
                 "access_token": credentials.credentials,
+                "demo": bool(auth_user.is_anonymous) or auth_user.id == get_settings().demo_user_id,
             }
         except (AuthApiError, ValueError, TypeError):
             raise HTTPException(
@@ -150,7 +152,7 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)) ->
             ).fetchone()
         if user is None:
             raise ValueError
-        return dict(user)
+        return {**dict(user), "demo": user["email"] == get_settings().demo_email}
     except (jwt.InvalidTokenError, ValueError, TypeError):
         raise HTTPException(
             401,
@@ -163,9 +165,25 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)) ->
 def register(data: Registration):
     if using_supabase():
         try:
+            # Supabase's public signup deliberately masks existing confirmed accounts
+            # and resends mail for unconfirmed accounts. Check server-side first.
+            admin = supabase_admin_client().auth.admin
+            page = 1
+            while True:
+                users = admin.list_users(page=page, per_page=100)
+                if any((user.email or "").lower() == str(data.email).lower() for user in users):
+                    raise HTTPException(
+                        409,
+                        "Un compte utilise déjà cette adresse. Connectez-vous ou renvoyez le lien de confirmation.",
+                    )
+                if len(users) < 100:
+                    break
+                page += 1
             response = supabase_client().auth.sign_up(
                 {"email": str(data.email).lower(), "password": data.password}
             )
+            if response.user is not None and response.user.identities == []:
+                raise HTTPException(409, "Un compte utilise déjà cette adresse. Connectez-vous.")
             if response.session is None:
                 return {
                     "confirmation_required": True,

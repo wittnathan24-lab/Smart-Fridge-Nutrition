@@ -20,6 +20,7 @@ from database import (
     create_generated_plan,
     create_item,
     delete_item,
+    get_profile,
     initialize,
     list_items,
     update_item,
@@ -241,16 +242,13 @@ def demo_recipes():
 async def generate_plan(
     day: date, user=Depends(current_user), client: httpx.AsyncClient = Depends(get_http_client)
 ):
-    import json
-
     from personal import PlannedMeal
 
-    if not user["profile"]:
+    profile = get_profile(user)
+    if not profile:
         raise HTTPException(422, "Enregistrez votre profil avant de composer une journée.")
-    target = calculate_nutrition_needs(
-        UserProfile(**json.loads(user["profile"]))
-    ).target_calories_kcal
-    if user["email"].endswith("@example.invalid"):
+    target = calculate_nutrition_needs(UserProfile(**profile)).target_calories_kcal
+    if user.get("demo"):
         candidates = RECIPES
     else:
         suggestions = await suggest_recipes_from_fridge(client, user)

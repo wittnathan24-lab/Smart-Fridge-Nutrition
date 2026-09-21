@@ -441,3 +441,15 @@ def test_partial_supabase_configuration_never_falls_back_to_sqlite(monkeypatch, 
     monkeypatch.setattr(get_settings(), "supabase_anon_key", key)
     with pytest.raises(DatabaseError, match="Configuration Supabase incomplète"):
         using_supabase()
+
+
+def test_demo_reuses_account_and_does_not_reset_inventory(client):
+    first = client.post("/auth/demo").json()
+    headers = {"Authorization": "Bearer " + first["access_token"]}
+    for item in client.get("/fridge/items", headers=headers).json():
+        assert client.delete(f"/fridge/items/{item['id']}", headers=headers).status_code == 200
+    second = client.post("/auth/demo").json()
+    second_headers = {"Authorization": "Bearer " + second["access_token"]}
+    assert client.get("/fridge/items", headers=second_headers).json() == []
+    with connection() as db:
+        assert db.execute("SELECT count(*) FROM users").fetchone()[0] == 1

@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     usda_api_key: str = ""
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    supabase_secret_key: str = ""
+    demo_email: str = "demo@smart-fridge.example"
+    demo_password: str = ""
+    demo_user_id: str = ""
     themealdb_base_url: str = "https://www.themealdb.com/api/json/v1/1"
     usda_base_url: str = "https://api.nal.usda.gov/fdc/v1"
 

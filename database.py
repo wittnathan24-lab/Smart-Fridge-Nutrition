@@ -45,6 +45,18 @@ def supabase_client(access_token: str | None = None) -> Client:
     return client
 
 
+def supabase_admin_client() -> Client:
+    """Server-only account administration; never use this for personal data queries."""
+    settings = get_settings()
+    if not settings.supabase_secret_key:
+        raise DatabaseError("La gestion des comptes Supabase n'est pas configurée côté serveur.")
+    return create_client(
+        settings.supabase_url,
+        settings.supabase_secret_key,
+        options=SyncClientOptions(auto_refresh_token=False, persist_session=False),
+    )
+
+
 @contextmanager
 def connection():
     """SQLite compatibility layer used only when Supabase is not configured."""

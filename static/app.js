@@ -111,7 +111,7 @@ function updateAccount() {
     "#account-feedback",
     session
       ? session.demo
-        ? "Mode démonstration · données illustratives · espace individuel"
+        ? "Compte de démonstration partagé · données illustratives"
         : `Connecté : ${session.email}`
       : "",
   );

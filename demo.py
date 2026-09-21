@@ -1,13 +1,13 @@
 """Deterministic portfolio fixtures, never represented as live USDA results."""
 
-import json
 import secrets
 
 from fastapi import APIRouter, HTTPException
 from supabase_auth.errors import AuthApiError
 
 from auth import password_hash, session_token
-from database import create_item, save_profile, supabase_client, using_supabase
+from config import get_settings
+from database import create_item, get_profile, save_profile, supabase_client, using_supabase
 
 router = APIRouter(tags=["Demo"])
 RECIPES = [
@@ -61,7 +61,8 @@ RECIPES = [
 
 @router.post("/auth/demo", status_code=201)
 def demo():
-    email = "demo-" + secrets.token_hex(12) + "@example.invalid"
+    settings = get_settings()
+    email = settings.demo_email
     profile = {
         "weight_kg": 70,
         "height_cm": 175,
@@ -72,8 +73,12 @@ def demo():
     }
     password = secrets.token_urlsafe(32)
     if using_supabase():
+        if not settings.demo_password or not settings.demo_user_id:
+            raise HTTPException(503, "Le compte de démonstration n’est pas encore configuré.")
         try:
-            response = supabase_client().auth.sign_in_anonymously()
+            response = supabase_client().auth.sign_in_with_password(
+                {"email": email, "password": settings.demo_password}
+            )
         except AuthApiError as exc:
             raise HTTPException(
                 503,
@@ -85,6 +90,8 @@ def demo():
                 "La session de démonstration n'a pas pu être créée.",
             )
         payload = session_token(response.session)
+        if response.user.id != settings.demo_user_id:
+            raise HTTPException(503, "La configuration du compte de démonstration est invalide.")
         user = {
             "id": response.user.id,
             "email": response.user.email,
@@ -94,13 +101,14 @@ def demo():
         from database import connection
 
         with connection() as db:
-            user_id = db.execute(
-                "INSERT INTO users(email,password,profile) VALUES (?,?,?)",
-                (email, password_hash(password), json.dumps(profile)),
-            ).lastrowid
-        user = {"id": user_id, "email": email, "profile": json.dumps(profile)}
+            db.execute(
+                "INSERT OR IGNORE INTO users(email,password) VALUES (?,?)",
+                (email, password_hash(password)),
+            )
+            user = dict(db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone())
         payload = session_token(user)
-    save_profile(user, profile)
-    for name, quantity_g in [("Poulet", 300), ("Riz", 400), ("Brocoli", 250), ("Tomates", 300)]:
-        create_item(user, name, quantity_g)
+    if get_profile(user) is None:
+        for name, quantity_g in [("Poulet", 300), ("Riz", 400), ("Brocoli", 250), ("Tomate", 300)]:
+            create_item(user, name, quantity_g)
+        save_profile(user, profile)
     return {**payload, "demo": True}
