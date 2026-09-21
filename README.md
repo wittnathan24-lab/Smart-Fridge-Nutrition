@@ -16,7 +16,7 @@ Copy-Item .env.example .env
 python -m uvicorn main:app --reload
 ```
 
-Ouvrir **http://127.0.0.1:8000**, puis **Explorer la démo**. Aucune clé API n’est nécessaire pour cette démonstration. Chaque visiteur reçoit un espace distinct avec un profil fictif, quatre ingrédients et trois recettes illustratives. Sans variables Supabase, les données restent dans SQLite local pour faciliter le développement.
+Ouvrir **http://127.0.0.1:8000**, puis **Explorer la démo**. Les visiteurs se connectent au même compte de démonstration partagé, initialisé avec un profil fictif, quatre ingrédients et trois recettes illustratives. Son contenu est conservé entre les connexions. Sans variables Supabase, les données restent dans SQLite local, sans clé API nécessaire. Avec Supabase, provisionner le compte une fois selon [le guide Supabase](docs/SUPABASE.md).
 
 Pour activer la base cloud, suivre le [guide Supabase](docs/SUPABASE.md), renseigner `SUPABASE_URL` et `SUPABASE_ANON_KEY` dans `.env`, puis redémarrer l’application. Supabase Auth gère alors l’inscription, la connexion, les sessions et les accès Postgres.
 

@@ -13,7 +13,7 @@ L'application utilise Supabase Auth pour les comptes et Postgres pour les profil
    SUPABASE_ANON_KEY=votre-cle-anon-ou-publishable
    ```
 
-4. Dans **Authentication > Sign In / Providers**, garder Email et **Confirm email** activés. Pour le bouton Démo, activer **Allow anonymous sign-ins** : chaque visiteur obtient son propre compte invité protégé par RLS, sans adresse fictive ni désactivation de la confirmation des comptes classiques.
+4. Dans **Authentication > Sign In / Providers**, garder Email et **Confirm email** activés. Le bouton Démo utilise désormais un compte permanent partagé ; il ne crée plus de compte invité.
 5. Redémarrer FastAPI puis créer un compte dans l'application.
 
 6. Dans **Authentication > URL Configuration**, régler **Site URL** sur l'adresse réelle de l'application : `http://127.0.0.1:8000` pour la démonstration locale. Le réglage par défaut `http://localhost:3000` ne correspond pas à ce projet. Après publication, remplacer cette valeur par l'adresse publique du site.
@@ -22,7 +22,15 @@ Le formulaire permet de renvoyer un lien de confirmation sans ressaisir le mot d
 
 Sans SMTP personnalisé, Supabase limite les destinataires et le nombre d'e-mails de confirmation. Configurer un fournisseur SMTP pour ouvrir les inscriptions au public : https://supabase.com/docs/guides/auth/auth-smtp. Ne pas confondre un échec de livraison avec une base de données indisponible.
 
-La clé `service_role` ne doit jamais être ajoutée au projet : l'application utilise uniquement la clé anon/publishable et le jeton de l'utilisateur connecté, afin que les règles RLS restent effectives.
+`SUPABASE_SECRET_KEY` est réservée au serveur, dans `.env` exclu de Git. Elle sert uniquement à vérifier les comptes existants avant inscription et à provisionner le compte démo. Les requêtes de profils, frigos et repas continuent d'utiliser la clé publique et le jeton de l'utilisateur pour maintenir RLS. Ne jamais transmettre la clé secrète au navigateur.
+
+## Compte démo permanent
+
+Renseigner la clé serveur puis exécuter `python -m scripts.setup_demo_account` une seule fois. Le script crée un compte confirmé réservé à la démonstration et enregistre un mot de passe aléatoire ainsi que son identifiant dans `.env`. Une nouvelle exécution conserve le compte et ses données. Redémarrer le serveur après cette configuration.
+
+Chaque clic sur Démo se connecte ensuite à ce même compte. Son frigo, son profil et ses repas sont partagés et ne sont pas réinitialisés à la connexion. Les comptes personnels gardent leurs données séparées. Les anciens comptes invités ne sont pas supprimés automatiquement.
+
+L'inscription refuse avec HTTP 409 une adresse déjà présente, même en attente de confirmation. La recherche côté serveur parcourt toutes les pages des comptes et ne renvoie pas leur liste au navigateur. Supabase conserve également sa contrainte d'unicité. Pour un grand volume d'utilisateurs, remplacer cette recherche paginée par un index serveur dédié.
 
 ## Déploiement du schéma avec la CLI
 
@@ -40,8 +48,8 @@ La base SQLite locale reste active tant que les deux variables Supabase sont abs
 
 ## Vérification réelle
 
-La commande `python -m scripts.check_supabase` crée deux comptes invités dans le projet configuré. Elle vérifie les sessions, leur renouvellement, le profil, les opérations sur le frigo, le plan de repas et le refus d'accès aux données d'un autre utilisateur. Elle conserve les comptes invités et leurs ingrédients initiaux pour inspection ; elle supprime uniquement l'ingrédient et le repas ajoutés par son scénario. Elle n'affiche aucune clé ni aucun jeton.
+La commande `python -m scripts.check_supabase` ouvre deux sessions sur le compte démo existant, sans créer d'utilisateur. Elle vérifie la connexion par mot de passe, le refus de réinscription, le renouvellement, le profil, les opérations sur le frigo et la génération de repas. Elle supprime uniquement l'ingrédient et les repas ajoutés par son scénario. Elle n'affiche aucune clé ni aucun jeton.
 
 Les tests ordinaires (`python -m pytest`) restent isolés sur SQLite, même lorsque `.env` pointe vers Supabase. Une configuration Supabase partielle provoque une erreur explicite au lieu de basculer silencieusement en local.
 
-Pour une publication publique, configurer la protection CAPTCHA des sessions invitées et prévoir leur nettoyage périodique. Une session invitée perdue ne peut pas être récupérée par e-mail.
+Pour une publication publique, limiter les abus sur le compte démo partagé et ne jamais y saisir de données personnelles.
